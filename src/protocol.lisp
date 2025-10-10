@@ -54,6 +54,10 @@ SLOTS are DEFCLASS slot specs. PRINT-NAME overrides the printed tag."
    (alt :initarg :alt :initform nil :reader key-msg-alt)
    (ctrl :initarg :ctrl :initform nil :reader key-msg-ctrl)))
 
+;; Bracketed paste message (ESC [ 200 ~ ... ESC [ 201 ~)
+(defmessage paste-msg
+  ((text :initarg :text :reader paste-msg-text)))
+
 (defmessage window-size-msg
   ((width :initarg :width :reader window-size-msg-width)
    (height :initarg :height :reader window-size-msg-height)))
@@ -77,6 +81,11 @@ SLOTS are DEFCLASS slot specs. PRINT-NAME overrides the printed tag."
   (make-instance 'key-msg :key key :alt alt :ctrl ctrl))
 
 (defun key-msg-p (obj) (typep obj 'key-msg))
+
+(defun make-paste-msg (&key text)
+  (make-instance 'paste-msg :text text))
+
+(defun paste-msg-p (obj) (typep obj 'paste-msg))
 
 (defun make-window-size-msg (&key width height)
   (make-instance 'window-size-msg :width width :height height))

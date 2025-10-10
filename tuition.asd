@@ -26,15 +26,11 @@
                              ;; Sub-packages
                              (:file "table")
                              (:file "list")
-                             (:file "tree"))))
-  :in-order-to ((test-op (test-op "tuition/components"))))
-
-(defsystem "tuition/components"
-  :description "Tuition UI components"
-  :depends-on ("tuition")
-  :serial t
-  :components ((:module "src/components"
-                :components ((:file "viewport")
+                             (:file "tree")))
+               (:module "src/components"
+                :components ((:file "textinput")
+                             (:file "viewport")
                              (:file "textarea")
                              (:file "paginator")
-                             (:file "help")))))
+                             (:file "help"))))
+  :in-order-to ((test-op (test-op "tuition/tests"))))

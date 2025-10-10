@@ -42,6 +42,14 @@
                             (subseq (textinput-input model) (textinput-cursor model))))
          (decf (textinput-cursor model)))
        (values model nil))
+      ;; Delete (forward delete)
+      ((eq key :delete)
+       (when (< (textinput-cursor model) (length (textinput-input model)))
+         (setf (textinput-input model)
+               (concatenate 'string
+                            (subseq (textinput-input model) 0 (textinput-cursor model))
+                            (subseq (textinput-input model) (1+ (textinput-cursor model))))))
+       (values model nil))
       ;; Left arrow
       ((eq key :left)
        (when (> (textinput-cursor model) 0)
@@ -51,6 +59,14 @@
       ((eq key :right)
        (when (< (textinput-cursor model) (length (textinput-input model)))
          (incf (textinput-cursor model)))
+       (values model nil))
+      ;; Home - move to beginning
+      ((eq key :home)
+       (setf (textinput-cursor model) 0)
+       (values model nil))
+      ;; End - move to end
+      ((eq key :end)
+       (setf (textinput-cursor model) (length (textinput-input model)))
        (values model nil))
       ;; Regular character input
       ((and (characterp key) (graphic-char-p key))
