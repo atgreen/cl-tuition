@@ -10,7 +10,8 @@
 *.pfsl
 *.wx64fsl
 *.wx32fsl
-*.cache
+.cache/
+.cache
 .fasls/
 *~
 *.bak
@@ -19,3 +20,4 @@ test-load.lisp
 *~
 ocicl/
 ENHANCEMENTS.md
+lisp/
