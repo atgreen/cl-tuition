@@ -47,6 +47,10 @@
    #:key-msg-ctrl
     #:make-key-msg
    #:key-string
+   #:paste-msg
+   #:paste-msg-p
+   #:paste-msg-text
+    #:make-paste-msg
    #:window-size-msg
    #:window-size-msg-p
    #:window-size-msg-width
@@ -62,6 +66,16 @@
    #:mouse-msg-alt
    #:mouse-msg-ctrl
     #:make-mouse-msg
+   #:tick-msg
+   #:tick-msg-p
+   #:tick-msg-time
+    #:make-tick-msg
+   #:suspend-msg
+   #:suspend-msg-p
+   #:make-suspend-msg
+   #:resume-msg
+   #:resume-msg-p
+   #:make-resume-msg
 
    ;; Commands
    #:quit-cmd
@@ -186,6 +200,24 @@
    #:input-error
    #:*error-handler*
    #:handle-error
+
+   ;; Key bindings
+   #:keybinding
+   #:make-keybinding
+   #:keybinding-keys
+   #:keybinding-help-key
+   #:keybinding-help-desc
+   #:keybinding-enabled-p
+   #:keybinding-enable
+   #:keybinding-disable
+   #:keybinding-matches
+   #:keybinding-help-line
+   #:keybindings-help
+   #:make-quit-keybinding
+   #:make-navigation-keybindings
+   #:make-selection-keybindings
+   #:make-scroll-keybindings
+   #:key-matches
 
    ;; Version information
    #:+version+))

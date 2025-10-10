@@ -8,14 +8,14 @@
 
 (in-package #:tuition)
 
-(
-defclass program ()
+(defclass program ()
   ((model :initarg :model :accessor program-model)
    (renderer :initform (make-instance 'renderer) :accessor program-renderer)
    (msg-channel :initform (trivial-channels:make-channel) :accessor msg-channel)
    (running :initform nil :accessor program-running)
    (options :initarg :options :initform nil :accessor program-options)
-   (tty-stream :initform nil :accessor program-tty-stream))
+   (tty-stream :initform nil :accessor program-tty-stream)
+   (restore-fn :initform nil :accessor program-restore-fn))
   (:documentation "A Bubble Tea program instance."))
 
 (defun make-program (model &key alt-screen mouse)
@@ -61,26 +61,96 @@ Options (keyword args only):
       ;; Use *terminal-io* for input
       (setf (program-tty-stream program) *terminal-io*)
 
-      ;; Start input thread
-      (let ((input-thread (bt:make-thread
-                           (lambda () (input-loop program))
-                           :name "tuition-input")))
+      ;; Set up signal handlers
+      #+sbcl
+      (let ((old-sigwinch-handler nil)
+            (old-sigtstp-handler nil)
+            (old-sigcont-handler nil))
+        ;; SIGWINCH - terminal resize
+        (setf old-sigwinch-handler
+              (sb-sys:enable-interrupt
+               sb-posix:sigwinch
+               (lambda (signal code scp)
+                 (declare (ignore signal code scp))
+                 (let* ((size (get-terminal-size))
+                        (width (car size))
+                        (height (cdr size)))
+                   (send program (make-window-size-msg :width width :height height))))))
 
-        ;; Run initial command
-        (let ((init-cmd (init (program-model program))))
-          (when init-cmd
-            (run-command program init-cmd)))
+        ;; SIGTSTP - suspend (Ctrl+Z)
+        (setf old-sigtstp-handler
+              (sb-sys:enable-interrupt
+               sb-posix:sigtstp
+               (lambda (signal code scp)
+                 (declare (ignore signal code scp))
+                 ;; Suspend the terminal and store restore function
+                 (setf (program-restore-fn program)
+                       (suspend-terminal :alt-screen alt :mouse mouse))
+                 ;; Send ourselves SIGSTOP to actually suspend
+                 (sb-posix:kill (sb-posix:getpid) sb-posix:sigstop))))
 
-        ;; Render initial view
-        (render (program-renderer program)
-                (view (program-model program)))
+        ;; SIGCONT - resume after suspension
+        (setf old-sigcont-handler
+              (sb-sys:enable-interrupt
+               sb-posix:sigcont
+               (lambda (signal code scp)
+                 (declare (ignore signal code scp))
+                 ;; Restore the terminal
+                 (when (program-restore-fn program)
+                   (resume-terminal (program-restore-fn program))
+                   (setf (program-restore-fn program) nil))
+                 ;; Send a resume message to the application
+                 (send program (make-resume-msg))))))
 
-        ;; Main event loop
-        (event-loop program)
+        ;; Start input thread
+        (let ((input-thread (bt:make-thread
+                             (lambda () (input-loop program))
+                             :name "tuition-input")))
 
-        ;; Cooperative shutdown: ask input loop to exit and join
-        (setf (program-running program) nil)
-        (bt:join-thread input-thread)))))
+          ;; Send initial window size
+          (let* ((size (get-terminal-size))
+                 (width (car size))
+                 (height (cdr size)))
+            (send program (make-window-size-msg :width width :height height)))
+
+          ;; Run initial command
+          (let ((init-cmd (init (program-model program))))
+            (when init-cmd
+              (run-command program init-cmd)))
+
+          ;; Render initial view
+          (render (program-renderer program)
+                  (view (program-model program)))
+
+          ;; Main event loop
+          (event-loop program)
+
+          ;; Cooperative shutdown: ask input loop to exit and join
+          (setf (program-running program) nil)
+          (bt:join-thread input-thread)
+
+          ;; Restore old signal handlers
+          (when old-sigwinch-handler
+            (sb-sys:enable-interrupt sb-posix:sigwinch old-sigwinch-handler))
+          (when old-sigtstp-handler
+            (sb-sys:enable-interrupt sb-posix:sigtstp old-sigtstp-handler))
+          (when old-sigcont-handler
+            (sb-sys:enable-interrupt sb-posix:sigcont old-sigcont-handler))))
+
+      #-sbcl
+      (progn
+        ;; Non-SBCL: no SIGWINCH support, just run without resize handling
+        (let ((input-thread (bt:make-thread
+                             (lambda () (input-loop program))
+                             :name "tuition-input")))
+          (let ((init-cmd (init (program-model program))))
+            (when init-cmd
+              (run-command program init-cmd)))
+          (render (program-renderer program)
+                  (view (program-model program)))
+          (event-loop program)
+          (setf (program-running program) nil)
+          (bt:join-thread input-thread)))))
 
 ;; Terminal setup/cleanup handled by WITH-RAW-TERMINAL
 
@@ -168,6 +238,10 @@ Options (keyword args only):
         (handler-case
             (let ((key-msg (read-key)))
               (when key-msg
+                (%ilog "input-loop: dispatch key key=~A alt=~A ctrl=~A"
+                       (key-msg-key key-msg)
+                       (key-msg-alt key-msg)
+                       (key-msg-ctrl key-msg))
                 (send program key-msg)))
           (error (e)
             (handle-error :input-loop e)))

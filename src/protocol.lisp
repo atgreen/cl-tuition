@@ -71,6 +71,14 @@ SLOTS are DEFCLASS slot specs. PRINT-NAME overrides the printed tag."
    (ctrl :initarg :ctrl :initform nil :reader mouse-msg-ctrl)
    (action :initarg :action :reader mouse-msg-action)))
 
+;; Tick message for timer/animation updates
+(defmessage tick-msg
+  ((time :initarg :time :initform (get-internal-real-time) :reader tick-msg-time)))
+
+;; Suspend/resume messages
+(defmessage suspend-msg () :print-name suspend)
+(defmessage resume-msg () :print-name resume)
+
 ;;; Constructors and predicates (compat names)
 (defun make-quit-msg ()
   (make-instance 'quit-msg))
@@ -98,6 +106,21 @@ SLOTS are DEFCLASS slot specs. PRINT-NAME overrides the printed tag."
 
 (defun mouse-msg-p (obj) (typep obj 'mouse-msg))
 
+(defun make-tick-msg (&key time)
+  (make-instance 'tick-msg :time (or time (get-internal-real-time))))
+
+(defun tick-msg-p (obj) (typep obj 'tick-msg))
+
+(defun make-suspend-msg ()
+  (make-instance 'suspend-msg))
+
+(defun suspend-msg-p (obj) (typep obj 'suspend-msg))
+
+(defun make-resume-msg ()
+  (make-instance 'resume-msg))
+
+(defun resume-msg-p (obj) (typep obj 'resume-msg))
+
 ;;; Command utilities
 (defun quit-cmd ()
   "Return a command that quits the program."
@@ -111,8 +134,15 @@ SLOTS are DEFCLASS slot specs. PRINT-NAME overrides the printed tag."
   "Sequence multiple commands to run in order."
   (cons :sequence (remove nil cmds)))
 
-(defun tick (duration fn)
-  "Create a command that waits for DURATION seconds then calls FN to produce a message."
+(defun tick (duration &optional (fn nil fn-supplied-p))
+  "Create a command that waits for DURATION seconds then produces a message.
+   If FN is provided, calls it to produce the message.
+   If FN is not provided, returns a tick-msg.
+
+   For recurring ticks (animations, timers), return another tick command from your
+   update function when handling the tick message."
   (lambda ()
     (sleep duration)
-    (funcall fn)))
+    (if fn-supplied-p
+        (funcall fn)
+        (make-tick-msg))))

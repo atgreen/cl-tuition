@@ -133,6 +133,47 @@
   (format t "~C[?1002l~C[?1003l~C[?1006l" #\Escape #\Escape #\Escape)
   (force-output))
 
+(defun enable-bracketed-paste ()
+  "Enable bracketed paste mode."
+  (format t "~C[?2004h" #\Escape)
+  (force-output))
+
+(defun disable-bracketed-paste ()
+  "Disable bracketed paste mode."
+  (format t "~C[?2004l" #\Escape)
+  (force-output))
+
+;;; Suspend/resume support
+
+(defun suspend-terminal (&key alt-screen mouse)
+  "Suspend the terminal - restore original state for backgrounding.
+Returns a function to restore the TUI state."
+  ;; Clean up TUI state
+  (when mouse (disable-mouse))
+  (disable-bracketed-paste)
+  (when alt-screen (exit-alt-screen))
+  (show-cursor)
+  (exit-raw-mode)
+  (force-output)
+
+  ;; Return a function to restore TUI state
+  (lambda ()
+    (enter-raw-mode)
+    (hide-cursor)
+    (clear-screen)
+    (when alt-screen (enter-alt-screen))
+    (enable-bracketed-paste)
+    (ecase mouse
+      ((nil) nil)
+      (:cell-motion (enable-mouse-cell-motion))
+      (:all-motion (enable-mouse-all-motion)))
+    (force-output)))
+
+(defun resume-terminal (restore-fn)
+  "Resume the terminal using the restore function."
+  (when restore-fn
+    (funcall restore-fn)))
+
 ;;; High-level terminal lifecycle
 (defmacro with-raw-terminal ((&key alt-screen mouse) &body body)
   "Execute BODY with the terminal in raw TUI mode.
@@ -170,6 +211,7 @@ Always restores the terminal, even if BODY errors."
                   (hide-cursor)
                   (clear-screen))
                 (when ,alt (enter-alt-screen))
+                (when ,raw-ok (enable-bracketed-paste))
                 (ecase ,m
                   ((nil) nil)
                   (:cell-motion (enable-mouse-cell-motion))
@@ -178,5 +220,6 @@ Always restores the terminal, even if BODY errors."
            (ignore-errors
              (when ,alt (exit-alt-screen))
              (when ,m (disable-mouse))
+             (when ,raw-ok (disable-bracketed-paste))
               (when ,raw-ok (show-cursor))
               (when ,raw-ok (exit-raw-mode))))))))
