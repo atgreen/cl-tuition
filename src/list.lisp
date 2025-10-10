@@ -4,11 +4,11 @@
 ;;;
 ;;; Copyright (C) 2025  Anthony Green <green@moxielogic.com>
 ;;;
-;;;; List rendering sub-package inspired by Lipgloss
+;;;; List rendering utilities for formatted text output
 
-(defpackage #:tuition.list
+(defpackage #:tuition.render.list
   (:use #:cl)
-  (:nicknames #:tui.list)
+  (:nicknames #:tui.render.list #:tui.r.list)
   (:documentation "List rendering utilities with various enumeration styles.")
   (:export
    ;; List creation
@@ -25,7 +25,7 @@
    ;; Rendering
    #:list-render))
 
-(in-package #:tuition.list)
+(in-package #:tuition.render.list)
 
 ;;; List structure
 (defclass tui-list ()

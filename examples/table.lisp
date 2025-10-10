@@ -35,7 +35,7 @@
 ;;; View
 (defmethod tui:view ((model table-model))
   (let ((languages-table
-         (tui.table:make-table
+         (tui.render.table:make-table
           :headers '("Language" "Formal" "Informal")
           :rows '(("Chinese" "您好" "你好")
                  ("Japanese" "こんにちは" "やあ")
@@ -45,7 +45,7 @@
           :border-style tui:*border-normal*))
 
         (ascii-table
-         (tui.table:make-table
+         (tui.render.table:make-table
           :headers '("ID" "Name" "Status")
           :rows '(("1" "Alice" "Active")
                  ("2" "Bob" "Inactive")
@@ -57,8 +57,8 @@
                  ~A~%~%~
                  Press q to quit~%"
             (tui:bold "Table Examples")
-            (tui.table:table-render languages-table)
-            (tui.table:table-render ascii-table))))
+            (tui.render.table:table-render languages-table)
+            (tui.render.table:table-render ascii-table))))
 
 ;;; Main entry point
 (defun main ()

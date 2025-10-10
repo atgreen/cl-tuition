@@ -4,11 +4,11 @@
 ;;;
 ;;; Copyright (C) 2025  Anthony Green <green@moxielogic.com>
 ;;;
-;;;; Table rendering sub-package inspired by Lipgloss
+;;;; Table rendering utilities for formatted text output
 
-(defpackage #:tuition.table
+(defpackage #:tuition.render.table
   (:use #:cl)
-  (:nicknames #:tui.table)
+  (:nicknames #:tui.render.table #:tui.r.table)
   (:documentation "Table rendering utilities for displaying tabular data.")
   (:import-from #:tuition
                 #:width
@@ -42,7 +42,7 @@
    ;; Constants
    #:+header-row+))
 
-(in-package #:tuition.table)
+(in-package #:tuition.render.table)
 
 ;;; Constants
 (defconstant +header-row+ -1

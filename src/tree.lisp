@@ -4,11 +4,11 @@
 ;;;
 ;;; Copyright (C) 2025  Anthony Green <green@moxielogic.com>
 ;;;
-;;;; Tree rendering sub-package inspired by Lipgloss
+;;;; Tree rendering utilities for formatted text output
 
-(defpackage #:tuition.tree
+(defpackage #:tuition.render.tree
   (:use #:cl)
-  (:nicknames #:tui.tree)
+  (:nicknames #:tui.render.tree #:tui.r.tree)
   (:documentation "Tree rendering utilities for hierarchical data structures.")
   (:export
    ;; Tree creation
@@ -23,7 +23,7 @@
    ;; Rendering
    #:tree-render))
 
-(in-package #:tuition.tree)
+(in-package #:tuition.render.tree)
 
 ;;; Tree structure
 (defclass tui-tree ()
