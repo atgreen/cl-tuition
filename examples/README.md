@@ -49,7 +49,7 @@ Replace `showcase` with any example filename and package prefix.
 - `spinner.lisp` — Tick-based spinner animation. `q` or `Ctrl+C` quits.
 - `spinner-component.lisp` — Spinner extracted into a reusable component. `q` or `Ctrl+C` quits.
 - `progress.lisp` — Progress bar that advances over time; any key quits.
-- `spring-animation.lisp` — Spring physics demo with smooth motion.
+- `spring-animation.lisp` — Spring physics demo with smooth motion; press `SPACE` to change target, `q` to quit.
 
 ### Timing
 
