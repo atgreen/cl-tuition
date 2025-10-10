@@ -1,105 +1,100 @@
 # Tuition Examples
 
-This directory contains example programs demonstrating various features of the Tuition TUI library.
+This directory contains runnable programs that demonstrate features of the Tuition TUI library.
 
 ## Running Examples
 
-Load an example with:
-```lisp
-(asdf:load-system :tuition)
-(load "examples/spinner.lisp")
-(tuition-example-spinner:main)
-```
+- In a Lisp REPL:
+  ```lisp
+  (asdf:load-system :tuition)
+  (load "examples/showcase.lisp")
+  (tuition-example-showcase:main)
+  ```
 
-Or from the command line:
-```bash
-sbcl --eval "(asdf:load-system :tuition)" --load examples/spinner.lisp --eval "(tuition-example-spinner:main)"
-```
+- From the command line (SBCL):
+  ```bash
+  sbcl --eval "(asdf:load-system :tuition)" \
+       --load examples/showcase.lisp \
+       --eval "(tuition-example-showcase:main)"
+  ```
+
+Replace `showcase` with any example filename and package prefix.
 
 ## Available Examples
 
-### Basic Interactions
+### Showcase
 
-- **counter.lisp** - Interactive counter with arrow keys
-  - ↑/+ increment, ↓/- decrement, r reset, q quit
+- `showcase.lisp` — A polished, animated overview of features. Press `q` to quit.
 
-- **simple.lisp** - Simple countdown timer
-  - Basic example showing the Elm Architecture
- 
-### Formatting
+### Basics
 
-- **reflow.lisp** - Wrap, truncate, and indent text
-  - ←/→ adjust wrap width, q quit
+- `simple.lisp` — Minimal countdown. Press `q` or `Ctrl+C` to quit.
+- `counter.lisp` — Counter with arrow keys and `r` to reset; `q` quits.
+- `borders.lisp` — Border styles (normal, rounded, ascii). `q` quits.
+- `styled.lisp` — Colors, bold/italic, alignment, width. `q` quits.
 
-### Animations
+### Formatting & Rendering
 
-- **spinner.lisp** - Animated loading spinner
-  - Demonstrates tick-based animation and self-updating components
+- `reflow.lisp` — Wrap, truncate, indent. Use `←/→` to adjust width; `q` quits.
+- `markdown.lisp` — Markdown rendering with multiple themes; press `1–4` to switch, `q` quits.
+- `table.lisp` — Simple table with different border styles. `q` quits.
 
-- **progress.lisp** - Animated progress bar
-  - Shows incremental progress updates over time
+### Lists & Input
+
+- `list.lisp` — Scrollable selection. `↑/k` and `↓/j` navigate, `Enter` selects, `q` quits.
+- `textinput.lisp` — Basic text input. Type to edit, arrows move cursor, `Enter/Esc` quit.
+
+### Animation & Components
+
+- `spinner.lisp` — Tick-based spinner animation. `q` or `Ctrl+C` quits.
+- `spinner-component.lisp` — Spinner extracted into a reusable component. `q` or `Ctrl+C` quits.
+- `progress.lisp` — Progress bar that advances over time; any key quits.
+- `spring-animation.lisp` — Spring physics demo with smooth motion.
 
 ### Timing
 
-- **stopwatch.lisp** - Start/stop/reset stopwatch
-  - s start/stop, r reset, q quit
-  - Demonstrates time tracking and formatting
+- `stopwatch.lisp` — Stopwatch with start/stop (`s`) and reset (`r`); `q` quits.
+- `timer.lisp` — Countdown timer with start/stop (`s`) and reset (`r`); `q` quits.
 
-- **timer.lisp** - Countdown timer with pause/resume
-  - s start/stop, r reset, q quit
-  - Shows countdown functionality
+### Mouse & Zones
 
-### Input
+- `mouse.lisp` — Mouse tracking (position, buttons, modifiers). Create the program with `:mouse :all-motion`.
+- `zones.lisp` — Clickable regions (“zones”) with selection; run with `:mouse :cell-motion`.
 
-- **textinput.lisp** - Simple text input field
-  - Type to enter text, backspace to delete
-  - Arrow keys to move cursor, enter/esc to quit
+### Networking & System
 
-- **list.lisp** - Scrollable list selection
-  - ↑/k and ↓/j to navigate, enter to select, q to quit
-
-### Advanced
-
-- **http.lisp** - Async HTTP request example
-  - Demonstrates command-based async operations
-  - Shows error handling
-
-- **mouse.lisp** - Mouse tracking and events
-  - Use `:mouse :all-motion` when creating the program
-  - Displays mouse coordinates and button events
-
-- **window-size.lisp** - Terminal size detection
-  - Press any key to query current terminal dimensions
+- `http.lisp` — Async HTTP example using commands, with basic error handling.
+- `window-size.lisp` — Query current terminal size; press any key.
 
 ## Example Structure
 
-Each example follows the Elm Architecture pattern:
+Each example follows the Elm Architecture pattern implemented by Tuition:
 
 ```lisp
 (defclass my-model ()
   ((field :initform value :accessor field)))
 
-(defmethod tea:init ((model my-model))
-  ;; Return initial command or nil
+(defmethod tui:init ((model my-model))
+  ;; Return initial command or NIL
   nil)
 
-(defmethod tea:update ((model my-model) msg)
+(defmethod tui:update-message ((model my-model) (msg tui:key-msg))
   ;; Handle messages, return (values new-model command)
   (values model nil))
 
-(defmethod tea:view ((model my-model))
-  ;; Render model to string
+(defmethod tui:view ((model my-model))
+  ;; Render model to a string
   (format nil "Hello, world!"))
 
 (defun main ()
-  (let ((program (tea:make-program (make-instance 'my-model))))
-    (tea:run program)))
+  (let ((program (tui:make-program (make-instance 'my-model))))
+    (tui:run program)))
 ```
 
 ## Key Concepts
 
-- **Messages**: Structs representing events (key presses, ticks, custom data)
-- **Commands**: Functions that return messages (for async operations)
-- **Model**: Your application state
-- **Update**: Pure function: (model, message) → (new-model, command)
-- **View**: Pure function: model → string
+- Messages: Structs representing events (key presses, ticks, custom data)
+- Commands: Functions that return messages (for async operations)
+- Model: Your application state
+- Update: Pure function: (model, message) → (new-model, command)
+- View: Pure function: model → string
