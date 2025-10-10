@@ -11,6 +11,16 @@ Tuition is a Common Lisp library for building rich, responsive Terminal User Int
 
 Tuition handles terminal concerns for you (raw mode, alternate screen, input decoding, cursor control) so you can focus on application logic.
 
+## Concepts Overview
+
+- Model-View-Update: Keep state in a CLOS object, react to messages, and render a pure string view.
+- Messages: Typed events (keys, mouse, timers, custom) dispatched via generic methods for clarity and extensibility.
+- Commands: Functions that return messages asynchronously, enabling timers, I/O, and background work without blocking.
+- Program: A managed loop that sets up the terminal, processes messages, runs commands, and refreshes the screen.
+- Pure Rendering: Rendering returns strings; styling, layout, borders, and reflow are composition-friendly utilities.
+- Components: Reusable widgets (spinner, progress, list, table, text input) that manage their own state and view.
+- Zones: Named regions to map mouse coordinates to stable identifiers for hover/click interactions.
+
 ## Features
 
 - TEA-style architecture with CLOS: message-specialized `tui:update-message`
@@ -26,14 +36,20 @@ Tuition handles terminal concerns for you (raw mode, alternate screen, input dec
 
 ## Installation
 
-Using ocicl:
+Tuition is an ASDF system. You can install it directly from this repo or add it to your local registry. The simplest paths are `ocicl` (a small, local-first Common Lisp package manager) or plain ASDF.
+
+Requirements:
+- A Common Lisp implementation (SBCL recommended)
+- ASDF available in your environment (bundled with SBCL)
+
+Using ocicl (local install from the repo root):
 
 ```bash
 cd /path/to/tuition
 ocicl install .
 ```
 
-Or via ASDF:
+Or via ASDF (ensure the repo is on your ASDF source registry, e.g., by cloning into `~/common-lisp/` or configuring `ASDF_SOURCE_REGISTRY`):
 
 ```lisp
 (asdf:load-system :tuition)
@@ -177,6 +193,10 @@ Commands are functions that return messages asynchronously.
 
 ### Program Options
 
+`tui:make-program` accepts options that affect terminal behavior and input decoding:
+- `:alt-screen` uses the terminal’s alternate screen buffer for clean entry/exit.
+- `:mouse` controls mouse reporting granularity (`:cell-motion`, `:all-motion`, or `NIL` to disable).
+
 ```lisp
 (tui:make-program model
   :alt-screen t            ; Use alternate screen buffer
@@ -186,6 +206,8 @@ Commands are functions that return messages asynchronously.
 ## Terminal Lifecycle
 
 Use `tui:with-raw-terminal` when you want terminal control outside the main program loop. It ensures proper cleanup and offers restarts to recover from setup issues.
+
+This is useful for short, scripted interactions or when embedding Tuition rendering in an existing tool with its own control flow.
 
 ```lisp
 (tui:with-raw-terminal (:alt-screen t :mouse :cell-motion)
@@ -201,6 +223,8 @@ Restarts during setup:
 ## Styling and Layout
 
 ### Text Styling
+
+Use text styling helpers to apply ANSI attributes (bold, italic, underline) and colors in a composable way. Styles can be nested and combined, or prebuilt via a style object and applied to arbitrary strings. This keeps rendering pure while letting you centralize theme choices.
 
 ```lisp
 (tui:bold "Important text")
@@ -218,6 +242,8 @@ Restarts during setup:
 
 ### Layout and Placement
 
+Layout helpers let you arrange blocks of text without calculating offsets by hand. Join content horizontally or vertically with alignment, then optionally position the result within a given width/height or the terminal’s current size. This encourages building UIs from simple, pure string blocks.
+
 ```lisp
 (tui:join-horizontal tui:+top+ "A" "B" "C")
 (tui:join-vertical tui:+left+ "Title" "Body" "Footer")
@@ -226,11 +252,15 @@ Restarts during setup:
 
 ### Borders
 
+Borders provide quick framing for panels, tables, and dialogs. Pick from several predefined styles (rounded, thick, double, ASCII, markdown) to match the tone of your UI, or render with plain blocks for a minimal look.
+
 ```lisp
 (tui:render-border (tui:make-border :style tui:*border-rounded*) "Panel")
 ```
 
 ## Reflow Utilities
+
+Reflow functions help you shape text to fit the terminal: wrap long paragraphs, truncate with ellipses, or indent multi‑line blocks. They are designed to work well with styled strings so you can format first and style later (or vice‑versa) without miscounting visible width.
 
 ```lisp
 (tui:wrap-text "A long paragraph to wrap neatly." 40 :indent 2)
@@ -239,6 +269,10 @@ Restarts during setup:
 ```
 
 ## Input and Mouse
+
+Keyboard events arrive as `tui:key-msg` values with helpers to inspect the key and modifier state. Mouse input (when enabled) surfaces cell‑based coordinates, button, and action so you can implement hover, drag, or click interactions in a pure update loop.
+
+Enable mouse reporting via `:mouse` in `tui:make-program` (see Program Options) and specialize `tui:update-message` on the corresponding message types.
 
 ```lisp
 ;; Key message helpers
@@ -258,6 +292,8 @@ Restarts during setup:
 ## Components
 
 Tuition includes a few reusable building blocks. Each component exposes a small protocol of functions or methods for init, update, and view.
+
+Use components when you want common interactions without re‑implementing state machines (for example, cursor management for text inputs or tick scheduling for spinners). Keep the component instance in your model, delegate messages to it in `update`, and render with the component’s `view`. For a deeper guide, see `src/components/README.md`.
 
 ```lisp
 ;; Spinner
@@ -288,6 +324,8 @@ Tuition includes a few reusable building blocks. Each component exposes a small 
 ## Zones (Mouse Areas)
 
 Zones let you attribute portions of the rendered screen to symbolic identifiers and query hover/clicks reliably.
+
+Use zones to implement clickable lists, buttons, and hover effects without manual hit‑testing. Mark regions during rendering and later resolve pointer coordinates back to a stable identifier.
 
 - Create a `zone-manager`
 - Mark regions while rendering
