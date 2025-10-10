@@ -100,7 +100,7 @@ Options (keyword args only):
                    (resume-terminal (program-restore-fn program))
                    (setf (program-restore-fn program) nil))
                  ;; Send a resume message to the application
-                 (send program (make-resume-msg))))))
+                 (send program (make-resume-msg)))))
 
         ;; Start input thread
         (let ((input-thread (bt:make-thread
@@ -150,7 +150,7 @@ Options (keyword args only):
                   (view (program-model program)))
           (event-loop program)
           (setf (program-running program) nil)
-          (bt:join-thread input-thread)))))
+          (bt:join-thread input-thread))))))
 
 ;; Terminal setup/cleanup handled by WITH-RAW-TERMINAL
 

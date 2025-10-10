@@ -141,15 +141,16 @@
         ((and ch (char= ch #\<))
          (parse-mouse-sequence stream))
 
-        ;; Navigation keys: arrows, Home, End
-        ((and ch (member ch '(#\A #\B #\C #\D #\H #\F)))
+        ;; Navigation keys: arrows, Home, End, Backtab
+        ((and ch (member ch '(#\A #\B #\C #\D #\H #\F #\Z)))
          (case ch
            (#\A (progn (%ilog "parse-csi-sequence: -> :up") (make-key-msg :key :up)))
            (#\B (progn (%ilog "parse-csi-sequence: -> :down") (make-key-msg :key :down)))
            (#\C (progn (%ilog "parse-csi-sequence: -> :right") (make-key-msg :key :right)))
            (#\D (progn (%ilog "parse-csi-sequence: -> :left") (make-key-msg :key :left)))
            (#\H (progn (%ilog "parse-csi-sequence: -> :home") (make-key-msg :key :home)))
-           (#\F (progn (%ilog "parse-csi-sequence: -> :end") (make-key-msg :key :end)))))
+           (#\F (progn (%ilog "parse-csi-sequence: -> :end") (make-key-msg :key :end)))
+           (#\Z (progn (%ilog "parse-csi-sequence: -> :backtab") (make-key-msg :key :backtab)))))
 
         ;; Digits: e.g., 3~ for Delete
         ((and ch (digit-char-p ch))

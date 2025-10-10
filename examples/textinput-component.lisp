@@ -8,6 +8,7 @@
 
 (defpackage #:tuition-example-textinput-component
   (:use #:cl #:tuition)
+  (:documentation "Demonstrates using the full-featured textinput component.")
   (:export #:main))
 
 (in-package #:tuition-example-textinput-component)
@@ -20,7 +21,8 @@
    (active-field :initform :name :accessor form-active-field)
    (submitted :initform nil :accessor form-submitted)
    (submitted-data :initform nil :accessor form-submitted-data)
-   (validation-error :initform nil :accessor form-validation-error)))
+   (validation-error :initform nil :accessor form-validation-error))
+  (:documentation "Model for a multi-field registration form."))
 
 ;;; Init
 (defmethod tui:init ((model form-model))
@@ -41,8 +43,7 @@
          ;; Note: validator runs on every keystroke. For email validation,
          ;; it's better to validate on submit rather than during typing.
          ;; Uncomment to see validator in action (only allows digits):
-         ;; :validator (lambda (s) (every #'digit-char-p s))
-         ))
+         ;; :validator (lambda (s) (every #'digit-char-p s))))
 
   (setf (form-password-input model)
         (tui.textinput:make-textinput
@@ -75,7 +76,7 @@
          ((and ctrl (characterp key) (char= key #\c))
           (values model (tui:quit-cmd)))
 
-         ;; Tab - cycle through fields
+         ;; Tab - cycle through fields forward
          ((eq key :tab)
           (case (form-active-field model)
             (:name
@@ -90,6 +91,23 @@
              (setf (form-active-field model) :name)
              (tui.textinput:textinput-blur (form-password-input model))
              (tui.textinput:textinput-focus (form-name-input model))))
+          (values model nil))
+
+         ;; Shift+Tab (backtab) - cycle through fields backward
+         ((eq key :backtab)
+          (case (form-active-field model)
+            (:name
+             (setf (form-active-field model) :password)
+             (tui.textinput:textinput-blur (form-name-input model))
+             (tui.textinput:textinput-focus (form-password-input model)))
+            (:email
+             (setf (form-active-field model) :name)
+             (tui.textinput:textinput-blur (form-email-input model))
+             (tui.textinput:textinput-focus (form-name-input model)))
+            (:password
+             (setf (form-active-field model) :email)
+             (tui.textinput:textinput-blur (form-password-input model))
+             (tui.textinput:textinput-focus (form-email-input model))))
           (values model nil))
 
          ;; Enter - submit form (with validation)
@@ -163,7 +181,7 @@
                    ~A~%~
                    ~A~%~@[~%ERROR: ~A~%~]~%~
                    Instructions:~%~
-                   - TAB: Switch fields~%~
+                   - TAB: Next field, Shift+TAB: Previous field~%~
                    - ENTER: Submit (validates email)~%~
                    - Ctrl+C: Quit~%~
                    - Home/End, Ctrl+A/E: Jump to start/end~%~
