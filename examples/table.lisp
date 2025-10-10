@@ -6,6 +6,8 @@
 ;;;
 ;;;; Table example - demonstrates table rendering
 
+(asdf:load-system :tuition)
+
 (defpackage #:tuition-example-table
   (:use #:cl #:tuition)
   (:export #:main))
@@ -38,10 +40,9 @@
          (tui.render.table:make-table
           :headers '("Language" "Formal" "Informal")
           :rows '(("Chinese" "您好" "你好")
-                 ("Japanese" "こんにちは" "やあ")
-                 ("Arabic" "أهلين" "أهلا")
-                 ("Russian" "Здравствуйте" "Привет")
-                 ("Spanish" "Hola" "¿Qué tal?"))
+                  ("Japanese" "こんにちは" "やあ")
+                  ("Russian" "Здравствуйте" "Привет")
+                  ("Spanish" "Hola" "¿Qué tal?"))
           :border-style tui:*border-normal*))
 
         (ascii-table
@@ -65,5 +66,5 @@
   (let ((program (tui:make-program (make-instance 'table-model))))
     (tui:run program)))
 
-#+nil
-(main)
+(eval-when (:load-toplevel :execute)
+  (main))
