@@ -1,4 +1,9 @@
-;;;; SPDX-License-Identifier: MIT
+;;; components/textinput.lisp
+;;;
+;;; SPDX-License-Identifier: MIT
+;;;
+;;; Copyright (C) 2025  Anthony Green <green@moxielogic.com>
+;;;
 ;;;; Text input component - reusable single-line text input
 
 (defpackage #:tuition.components.textinput

@@ -1,4 +1,9 @@
-;;;; SPDX-License-Identifier: MIT
+;;; markdown.lisp
+;;;
+;;; SPDX-License-Identifier: MIT
+;;;
+;;; Copyright (C) 2025  Anthony Green <green@moxielogic.com>
+;;;
 ;;;; Markdown renderer for terminal output with ANSI styling
 ;;;; Inspired by Charmbracelet's Glamour
 

@@ -1,4 +1,9 @@
-;;;; SPDX-License-Identifier: MIT
+;;; protocol.lisp
+;;;
+;;; SPDX-License-Identifier: MIT
+;;;
+;;; Copyright (C) 2025  Anthony Green <green@moxielogic.com>
+;;;
 ;;;; Core protocol for the Elm Architecture pattern
 
 (in-package #:tuition)

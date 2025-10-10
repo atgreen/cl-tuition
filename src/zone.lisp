@@ -1,4 +1,9 @@
-;;;; SPDX-License-Identifier: MIT
+;;; zone.lisp
+;;;
+;;; SPDX-License-Identifier: MIT
+;;;
+;;; Copyright (C) 2025  Anthony Green <green@moxielogic.com>
+;;;
 ;;;; Zone system - mouse zone tracking
 
 (in-package #:tuition)

@@ -1,4 +1,9 @@
-;;;; SPDX-License-Identifier: MIT
+;;; renderer.lisp
+;;;
+;;; SPDX-License-Identifier: MIT
+;;;
+;;; Copyright (C) 2025  Anthony Green <green@moxielogic.com>
+;;;
 ;;;; Rendering engine for efficient terminal output
 
 (in-package #:tuition)

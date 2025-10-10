@@ -1,4 +1,9 @@
-;;;; SPDX-License-Identifier: MIT
+;;; components/progress.lisp
+;;;
+;;; SPDX-License-Identifier: MIT
+;;;
+;;; Copyright (C) 2025  Anthony Green <green@moxielogic.com>
+;;;
 ;;;; Progress bar component - reusable progress indicator
 
 (defpackage #:tuition.components.progress

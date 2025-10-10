@@ -1,4 +1,9 @@
-;;;; SPDX-License-Identifier: MIT
+;;; components/textarea.lisp
+;;;
+;;; SPDX-License-Identifier: MIT
+;;;
+;;; Copyright (C) 2025  Anthony Green <green@moxielogic.com>
+;;;
 ;;;; Textarea component for multi-line text editing
 
 (defpackage #:tuition.components.textarea

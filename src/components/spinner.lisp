@@ -1,4 +1,9 @@
-;;;; SPDX-License-Identifier: MIT
+;;; components/spinner.lisp
+;;;
+;;; SPDX-License-Identifier: MIT
+;;;
+;;; Copyright (C) 2025  Anthony Green <green@moxielogic.com>
+;;;
 ;;;; Spinner component - reusable animated spinner
 
 (defpackage #:tuition.components.spinner

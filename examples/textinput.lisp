@@ -1,4 +1,9 @@
-;;;; SPDX-License-Identifier: MIT
+;;; textinput.lisp
+;;;
+;;; SPDX-License-Identifier: MIT
+;;;
+;;; Copyright (C) 2025  Anthony Green <green@moxielogic.com>
+;;;
 ;;;; Text input example - demonstrates simple text input
 
 (defpackage #:tuition-example-textinput

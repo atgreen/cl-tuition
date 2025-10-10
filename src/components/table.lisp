@@ -1,4 +1,9 @@
-;;;; SPDX-License-Identifier: MIT
+;;; components/table.lisp
+;;;
+;;; SPDX-License-Identifier: MIT
+;;;
+;;; Copyright (C) 2025  Anthony Green <green@moxielogic.com>
+;;;
 ;;;; Table component - table rendering
 
 (defpackage #:tuition.components.table

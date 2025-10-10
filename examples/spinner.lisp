@@ -1,4 +1,9 @@
-;;;; SPDX-License-Identifier: MIT
+;;; spinner.lisp
+;;;
+;;; SPDX-License-Identifier: MIT
+;;;
+;;; Copyright (C) 2025  Anthony Green <green@moxielogic.com>
+;;;
 ;;;; Spinner example - demonstrates tick-based animation
 
 (defpackage #:tuition-example-spinner

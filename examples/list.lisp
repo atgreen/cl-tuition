@@ -1,4 +1,9 @@
-;;;; SPDX-License-Identifier: MIT
+;;; list.lisp
+;;;
+;;; SPDX-License-Identifier: MIT
+;;;
+;;; Copyright (C) 2025  Anthony Green <green@moxielogic.com>
+;;;
 ;;;; List example - demonstrates scrollable list selection
 
 (defpackage #:tuition-example-list

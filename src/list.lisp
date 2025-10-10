@@ -1,4 +1,9 @@
-;;;; SPDX-License-Identifier: MIT
+;;; list.lisp
+;;;
+;;; SPDX-License-Identifier: MIT
+;;;
+;;; Copyright (C) 2025  Anthony Green <green@moxielogic.com>
+;;;
 ;;;; List rendering sub-package inspired by Lipgloss
 
 (defpackage #:tuition.list
@@ -68,9 +73,9 @@
         (num (1+ index))
         (result ""))
     (dolist (pair numerals)
-      (loop while (>= num (car pair))
-            do (setf result (concatenate 'string result (cdr pair)))
-               (decf num (car pair))))
+      (loop while (>= num (first pair))
+            do (setf result (concatenate 'string result (rest pair)))
+               (decf num (first pair))))
     (format nil "~A. " (string-downcase result))))
 
 (defun tree-enumerator (items index)

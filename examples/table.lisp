@@ -1,4 +1,9 @@
-;;;; SPDX-License-Identifier: MIT
+;;; table.lisp
+;;;
+;;; SPDX-License-Identifier: MIT
+;;;
+;;; Copyright (C) 2025  Anthony Green <green@moxielogic.com>
+;;;
 ;;;; Table example - demonstrates table rendering
 
 (defpackage #:tuition-example-table

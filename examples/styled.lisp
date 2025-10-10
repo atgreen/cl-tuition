@@ -1,4 +1,9 @@
-;;;; SPDX-License-Identifier: MIT
+;;; styled.lisp
+;;;
+;;; SPDX-License-Identifier: MIT
+;;;
+;;; Copyright (C) 2025  Anthony Green <green@moxielogic.com>
+;;;
 ;;;; Styled example - demonstrates the styling system
 
 (defpackage #:tuition-example-styled

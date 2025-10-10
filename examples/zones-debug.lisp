@@ -1,4 +1,9 @@
-;;;; SPDX-License-Identifier: MIT
+;;; zones-debug.lisp
+;;;
+;;; SPDX-License-Identifier: MIT
+;;;
+;;; Copyright (C) 2025  Anthony Green <green@moxielogic.com>
+;;;
 ;;;; Zones debug - test zone-scan output
 
 (defpackage #:tuition-example-zones-debug

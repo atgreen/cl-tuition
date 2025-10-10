@@ -1,4 +1,9 @@
-;;;; SPDX-License-Identifier: MIT
+;;; window-size.lisp
+;;;
+;;; SPDX-License-Identifier: MIT
+;;;
+;;; Copyright (C) 2025  Anthony Green <green@moxielogic.com>
+;;;
 ;;;; Window size example - demonstrates terminal size detection
 
 (defpackage #:tuition-example-window-size

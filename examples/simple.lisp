@@ -1,3 +1,9 @@
+;;; simple.lisp
+;;;
+;;; SPDX-License-Identifier: MIT
+;;;
+;;; Copyright (C) 2025  Anthony Green <green@moxielogic.com>
+;;;
 ;;;; Simple countdown example - counts down from 5 and exits
 
 (defpackage #:tuition-example-simple

@@ -1,4 +1,9 @@
-;;;; SPDX-License-Identifier: MIT
+;;; tree.lisp
+;;;
+;;; SPDX-License-Identifier: MIT
+;;;
+;;; Copyright (C) 2025  Anthony Green <green@moxielogic.com>
+;;;
 ;;;; Tree rendering sub-package inspired by Lipgloss
 
 (defpackage #:tuition.tree
@@ -98,9 +103,9 @@
                              (child-text (tree-render child (1+ depth) child-prefix))
                              (child-lines (tuition:split-string-by-newline child-text)))
                         ;; First line already has the branch
-                        (push (car child-lines) result)
+                        (push (first child-lines) result)
                         ;; Remaining lines need continuation
-                        (dolist (line (cdr child-lines))
+                        (dolist (line (rest child-lines))
                           (push (format nil "~A~A~A"
                                        prefix
                                        (if last-child-p "    " continuation)

@@ -1,4 +1,9 @@
-;;;; SPDX-License-Identifier: MIT
+;;; table.lisp
+;;;
+;;; SPDX-License-Identifier: MIT
+;;;
+;;; Copyright (C) 2025  Anthony Green <green@moxielogic.com>
+;;;
 ;;;; Table rendering sub-package inspired by Lipgloss
 
 (defpackage #:tuition.table

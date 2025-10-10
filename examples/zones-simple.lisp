@@ -1,4 +1,9 @@
-;;;; SPDX-License-Identifier: MIT
+;;; zones-simple.lisp
+;;;
+;;; SPDX-License-Identifier: MIT
+;;;
+;;; Copyright (C) 2025  Anthony Green <green@moxielogic.com>
+;;;
 ;;;; Simple zones example - for debugging
 
 (defpackage #:tuition-example-zones-simple

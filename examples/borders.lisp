@@ -1,4 +1,9 @@
-;;;; SPDX-License-Identifier: MIT
+;;; borders.lisp
+;;;
+;;; SPDX-License-Identifier: MIT
+;;;
+;;; Copyright (C) 2025  Anthony Green <green@moxielogic.com>
+;;;
 ;;;; Borders example - demonstrates border styles
 
 (defpackage #:tuition-example-borders

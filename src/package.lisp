@@ -1,4 +1,8 @@
-;;;; SPDX-License-Identifier: MIT
+;;; package.lisp
+;;;
+;;; SPDX-License-Identifier: MIT
+;;;
+;;; Copyright (C) 2025  Anthony Green <green@moxielogic.com>
 
 (defpackage #:tuition
   (:use #:cl)

@@ -1,3 +1,9 @@
+;;; test-terminal.lisp
+;;;
+;;; SPDX-License-Identifier: MIT
+;;;
+;;; Copyright (C) 2025  Anthony Green <green@moxielogic.com>
+;;;
 ;;;; Test terminal I/O directly
 
 (require :asdf)

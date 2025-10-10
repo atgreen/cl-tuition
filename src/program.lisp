@@ -1,4 +1,9 @@
-;;;; SPDX-License-Identifier: MIT
+;;; program.lisp
+;;;
+;;; SPDX-License-Identifier: MIT
+;;;
+;;; Copyright (C) 2025  Anthony Green <green@moxielogic.com>
+;;;
 ;;;; Main program loop and runtime
 
 (in-package #:tuition)

@@ -1,4 +1,9 @@
-;;;; SPDX-License-Identifier: MIT
+;;; progress.lisp
+;;;
+;;; SPDX-License-Identifier: MIT
+;;;
+;;; Copyright (C) 2025  Anthony Green <green@moxielogic.com>
+;;;
 ;;;; Progress bar example - demonstrates animated progress
 
 (defpackage #:tuition-example-progress

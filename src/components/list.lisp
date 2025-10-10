@@ -1,4 +1,9 @@
-;;;; SPDX-License-Identifier: MIT
+;;; components/list.lisp
+;;;
+;;; SPDX-License-Identifier: MIT
+;;;
+;;; Copyright (C) 2025  Anthony Green <green@moxielogic.com>
+;;;
 ;;;; List component - reusable scrollable list
 
 (defpackage #:tuition.components.list

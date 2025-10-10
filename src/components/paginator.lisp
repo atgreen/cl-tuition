@@ -1,4 +1,9 @@
-;;;; SPDX-License-Identifier: MIT
+;;; components/paginator.lisp
+;;;
+;;; SPDX-License-Identifier: MIT
+;;;
+;;; Copyright (C) 2025  Anthony Green <green@moxielogic.com>
+;;;
 ;;;; Paginator component for pagination UI
 
 (defpackage #:tuition.components.paginator

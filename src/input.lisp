@@ -1,4 +1,9 @@
-;;;; SPDX-License-Identifier: MIT
+;;; input.lisp
+;;;
+;;; SPDX-License-Identifier: MIT
+;;;
+;;; Copyright (C) 2025  Anthony Green <green@moxielogic.com>
+;;;
 ;;;; Input handling and key event processing
 
 (in-package #:tuition)

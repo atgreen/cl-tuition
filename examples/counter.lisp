@@ -1,3 +1,9 @@
+;;; counter.lisp
+;;;
+;;; SPDX-License-Identifier: MIT
+;;;
+;;; Copyright (C) 2025  Anthony Green <green@moxielogic.com>
+;;;
 ;;;; Interactive counter example - demonstrates key handling
 
 (defpackage #:tuition-example-counter

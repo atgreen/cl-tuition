@@ -1,4 +1,9 @@
-;;;; SPDX-License-Identifier: MIT
+;;; components/help.lisp
+;;;
+;;; SPDX-License-Identifier: MIT
+;;;
+;;; Copyright (C) 2025  Anthony Green <green@moxielogic.com>
+;;;
 ;;;; Help component for auto-generated help text
 
 (defpackage #:tuition.components.help
@@ -195,7 +200,7 @@ a list of binding lists (full)."
       ;; Full help - expect list of lists
       (help-full-view help bindings)
       ;; Short help - expect flat list
-      (if (and (consp bindings) (consp (car bindings)))
+      (if (and (consp bindings) (consp (first bindings)))
           ;; Got list of lists, flatten it for short view
           (help-short-view help (apply #'append bindings))
           ;; Got flat list

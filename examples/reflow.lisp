@@ -1,4 +1,9 @@
-;;;; SPDX-License-Identifier: MIT
+;;; reflow.lisp
+;;;
+;;; SPDX-License-Identifier: MIT
+;;;
+;;; Copyright (C) 2025  Anthony Green <green@moxielogic.com>
+;;;
 ;;;; Reflow example - demonstrates wrap, truncate, indent
 
 (defpackage #:tuition-example-reflow

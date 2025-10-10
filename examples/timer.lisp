@@ -1,4 +1,9 @@
-;;;; SPDX-License-Identifier: MIT
+;;; timer.lisp
+;;;
+;;; SPDX-License-Identifier: MIT
+;;;
+;;; Copyright (C) 2025  Anthony Green <green@moxielogic.com>
+;;;
 ;;;; Timer example - demonstrates countdown timer
 
 (defpackage #:tuition-example-timer

@@ -1,4 +1,9 @@
-;;;; SPDX-License-Identifier: MIT
+;;; http.lisp
+;;;
+;;; SPDX-License-Identifier: MIT
+;;;
+;;; Copyright (C) 2025  Anthony Green <green@moxielogic.com>
+;;;
 ;;;; HTTP example - demonstrates async HTTP requests
 
 (defpackage #:tuition-example-http

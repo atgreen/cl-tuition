@@ -1,4 +1,9 @@
-;;;; SPDX-License-Identifier: MIT
+;;; zones.lisp
+;;;
+;;; SPDX-License-Identifier: MIT
+;;;
+;;; Copyright (C) 2025  Anthony Green <green@moxielogic.com>
+;;;
 ;;;; Zones example - demonstrates mouse zone tracking
 
 (defpackage #:tuition-example-zones

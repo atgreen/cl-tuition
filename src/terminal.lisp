@@ -1,4 +1,9 @@
-;;;; SPDX-License-Identifier: MIT
+;;; terminal.lisp
+;;;
+;;; SPDX-License-Identifier: MIT
+;;;
+;;; Copyright (C) 2025  Anthony Green <green@moxielogic.com>
+;;;
 ;;;; Terminal control and raw mode handling
 
 (in-package #:tuition)

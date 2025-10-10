@@ -1,4 +1,9 @@
-;;;; SPDX-License-Identifier: MIT
+;;; zones-log.lisp
+;;;
+;;; SPDX-License-Identifier: MIT
+;;;
+;;; Copyright (C) 2025  Anthony Green <green@moxielogic.com>
+;;;
 ;;;; Zones example with logging
 
 (defpackage #:tuition-example-zones-log

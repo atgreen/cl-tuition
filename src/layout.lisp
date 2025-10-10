@@ -1,4 +1,9 @@
-;;;; SPDX-License-Identifier: MIT
+;;; layout.lisp
+;;;
+;;; SPDX-License-Identifier: MIT
+;;;
+;;; Copyright (C) 2025  Anthony Green <green@moxielogic.com>
+;;;
 ;;;; Layout utilities - joining and positioning text blocks
 
 (in-package #:tuition)

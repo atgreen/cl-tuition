@@ -1,5 +1,7 @@
 # Tuition
 
+![Tuition Showcase](./showcase.png)
+
 Tuition is a Common Lisp library for building rich, responsive Terminal User Interfaces (TUIs). It blends the simplicity of The Elm Architecture (TEA) with the power of CLOS so you can model state clearly, react to events via generic methods, and render your UI as pure strings.
 
 - Model: a CLOS object representing your application state

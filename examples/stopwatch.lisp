@@ -1,4 +1,9 @@
-;;;; SPDX-License-Identifier: MIT
+;;; stopwatch.lisp
+;;;
+;;; SPDX-License-Identifier: MIT
+;;;
+;;; Copyright (C) 2025  Anthony Green <green@moxielogic.com>
+;;;
 ;;;; Stopwatch example - demonstrates start/stop/reset timing
 
 (defpackage #:tuition-example-stopwatch

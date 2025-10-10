@@ -1,4 +1,9 @@
-;;;; SPDX-License-Identifier: MIT
+;;; errors.lisp
+;;;
+;;; SPDX-License-Identifier: MIT
+;;;
+;;; Copyright (C) 2025  Anthony Green <green@moxielogic.com>
+;;;
 ;;;; Condition types and error handling hooks
 
 (in-package #:tuition)

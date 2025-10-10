@@ -1,4 +1,9 @@
-;;;; SPDX-License-Identifier: MIT
+;;; components/viewport.lisp
+;;;
+;;; SPDX-License-Identifier: MIT
+;;;
+;;; Copyright (C) 2025  Anthony Green <green@moxielogic.com>
+;;;
 ;;;; Viewport component for scrollable content
 
 (defpackage #:tuition.components.viewport

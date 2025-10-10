@@ -1,4 +1,9 @@
-;;;; SPDX-License-Identifier: MIT
+;;; spring.lisp
+;;;
+;;; SPDX-License-Identifier: MIT
+;;;
+;;; Copyright (C) 2025  Anthony Green <green@moxielogic.com>
+;;;
 ;;;; Spring physics for smooth, natural animations
 ;;;;
 ;;;; This is a port of Ryan Juckett's damped harmonic oscillator algorithm,

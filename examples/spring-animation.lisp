@@ -1,4 +1,9 @@
-;;;; SPDX-License-Identifier: MIT
+;;; spring-animation.lisp
+;;;
+;;; SPDX-License-Identifier: MIT
+;;;
+;;; Copyright (C) 2025  Anthony Green <green@moxielogic.com>
+;;;
 ;;;; Spring animation example - demonstrates smooth physics-based motion
 
 (defpackage #:tuition-example-spring-animation

@@ -1,4 +1,9 @@
-;;;; SPDX-License-Identifier: MIT
+;;; mouse.lisp
+;;;
+;;; SPDX-License-Identifier: MIT
+;;;
+;;; Copyright (C) 2025  Anthony Green <green@moxielogic.com>
+;;;
 ;;;; Mouse example - demonstrates mouse tracking
 
 (defpackage #:tuition-example-mouse

@@ -1,4 +1,9 @@
-;;;; SPDX-License-Identifier: MIT
+;;; style.lisp
+;;;
+;;; SPDX-License-Identifier: MIT
+;;;
+;;; Copyright (C) 2025  Anthony Green <green@moxielogic.com>
+;;;
 ;;;; Style system - terminal styling and formatting inspired by Lipgloss
 
 (in-package #:tuition)

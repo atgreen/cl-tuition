@@ -1,4 +1,9 @@
-;;;; SPDX-License-Identifier: MIT
+;;; zones-test.lisp
+;;;
+;;; SPDX-License-Identifier: MIT
+;;;
+;;; Copyright (C) 2025  Anthony Green <green@moxielogic.com>
+;;;
 ;;;; Zones test - simple button test
 
 (defpackage #:tuition-example-zones-test
