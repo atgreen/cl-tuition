@@ -7,7 +7,9 @@
   :version "0.1.0"
   :depends-on (#:bordeaux-threads
                #:trivial-channels
-               #:version-string)
+               #:version-string
+               #:alexandria
+               #:serapeum)
   :serial t
   :components ((:module "src"
                 :components ((:file "package")

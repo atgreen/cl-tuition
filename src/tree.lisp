@@ -49,8 +49,7 @@
 
 (defun tree-child (tree &rest children)
   "Add children to the tree. Children can be strings or other trees."
-  (setf (tree-children tree)
-        (append (tree-children tree) children))
+  (alexandria:appendf (tree-children tree) children)
   tree)
 
 ;;; Built-in enumerators
@@ -109,7 +108,9 @@
                           (push (format nil "~A~A~A"
                                        prefix
                                        (if last-child-p "    " continuation)
-                                       (subseq line (+ (length prefix) (tuition:visible-length styled-branch))))
+                                       (serapeum:drop (+ (length prefix)
+                                                         (tuition:visible-length styled-branch))
+                                                      line))
                                 result))))
 
                      ;; String child

@@ -9,6 +9,7 @@
 (defpackage #:tuition.components.stopwatch
   (:use #:cl)
   (:nicknames #:tui.stopwatch)
+  (:documentation "Stopwatch component: count-up timer with tick updates.")
   (:export
    ;; Model
    #:stopwatch

@@ -9,12 +9,12 @@
 (in-package #:tuition)
 
 ;;; Position constants
-(defparameter +top+ :top)
-(defparameter +middle+ :middle)
-(defparameter +bottom+ :bottom)
-(defparameter +left+ :left)
-(defparameter +center+ :center)
-(defparameter +right+ :right)
+(defconstant +top+ :top)
+(defconstant +middle+ :middle)
+(defconstant +bottom+ :bottom)
+(defconstant +left+ :left)
+(defconstant +center+ :center)
+(defconstant +right+ :right)
 
 (defun join-horizontal (position &rest blocks)
   "Join text blocks horizontally at the given vertical position.

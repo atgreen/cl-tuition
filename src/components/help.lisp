@@ -110,7 +110,7 @@ Returns (values should-add-p tail-string)."
                (multiple-value-bind (should-add tail)
                    (help-should-add-item-p help total-width str-width)
                  (unless should-add
-                   (when (not (string= tail ""))
+                   (unless (string= tail "")
                      (push tail result))
                    (return))
 
@@ -139,7 +139,7 @@ Each group is a list of bindings that form a column."
           do (let* ((sep (if (and (> total-width 0) (< i (length groups)))
                             separator
                             ""))
-                    (enabled-bindings (remove-if-not #'help-binding-enabled group))
+                    (enabled-bindings (serapeum:filter #'help-binding-enabled group))
                     (keys (mapcar #'help-binding-key enabled-bindings))
                     (descs (mapcar #'help-binding-description enabled-bindings))
                     (key-column (format nil "~{~A~^~%~}" keys))
@@ -152,7 +152,7 @@ Each group is a list of bindings that form a column."
                (multiple-value-bind (should-add tail)
                    (help-should-add-item-p help total-width column-width)
                  (unless should-add
-                   (when (not (string= tail ""))
+                   (unless (string= tail "")
                      (push tail columns))
                    (return))
 

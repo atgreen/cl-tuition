@@ -44,7 +44,7 @@
 
 (defun list-item (list item)
   "Add an item to the list."
-  (setf (list-items list) (append (list-items list) (list item)))
+  (alexandria:appendf (list-items list) (list item))
   list)
 
 ;;; Built-in enumerators
@@ -80,8 +80,7 @@
 
 (defun tree-enumerator (items index)
   "Tree-style enumerator with branches."
-  (let ((last-p (= index (1- (length items)))))
-    (if last-p "└── " "├── ")))
+  (if (= index (1- (length items))) "└── " "├── "))
 
 ;;; Rendering
 (defun list-render (list)

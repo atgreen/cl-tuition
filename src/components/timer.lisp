@@ -9,6 +9,7 @@
 (defpackage #:tuition.components.timer
   (:use #:cl)
   (:nicknames #:tui.timer)
+  (:documentation "Timer component: countdown with tick-based updates.")
   (:export
    ;; Model
    #:timer
@@ -43,9 +44,11 @@
   :print-name timer-timeout)
 
 (defun timer-timeout-msg-p (obj)
+  "Return true if OBJ is a timer-timeout-msg."
   (typep obj 'timer-timeout-msg))
 
 (defun make-timer-timeout-msg (&key id)
+  "Construct a timer-timeout-msg with identifier ID."
   (make-instance 'timer-timeout-msg :id id))
 
 ;;; Timer model
@@ -119,7 +122,7 @@ Parameters:
     (setf (timer-running timer) t)
     (if (timer-start-time timer)
         ;; Resume: adjust start time to account for elapsed time
-        (let* ((elapsed (- (timer-duration timer) (timer-remaining timer))))
+        (let ((elapsed (- (timer-duration timer) (timer-remaining timer))))
           (setf (timer-start-time timer)
                 (- (get-internal-real-time)
                    (* elapsed internal-time-units-per-second))))

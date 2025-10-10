@@ -9,6 +9,7 @@
 (defpackage #:tuition.components.progress
   (:use #:cl)
   (:nicknames #:tui.progress)
+  (:documentation "Progress bar component: textual progress visualization.")
   (:export
    ;; Model
    #:progress

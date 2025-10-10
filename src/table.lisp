@@ -87,8 +87,7 @@
 ;;; Building tables
 (defun table-row (table &rest cells)
   "Add a row to the table."
-  (setf (table-rows table)
-        (append (table-rows table) (list cells)))
+  (alexandria:appendf (table-rows table) (list cells))
   table)
 
 (defun table-clear-rows (table)
@@ -130,10 +129,9 @@
   "Render a cell with the given text, applying style if available."
   (let* ((style-func (table-style-func table))
          (styled-text (if style-func
-                          (let ((style (funcall style-func row col)))
-                            (if style
-                                (tuition:render-styled style text)
-                                text))
+                          (alexandria:if-let (style (funcall style-func row col))
+                            (tuition:render-styled style text)
+                            text)
                           text))
          (visible-len (tuition:visible-length styled-text))
          (padding (max 0 (- width visible-len))))

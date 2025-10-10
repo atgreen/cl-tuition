@@ -9,6 +9,7 @@
 (defpackage #:tuition.components.spinner
   (:use #:cl)
   (:nicknames #:tui.spinner)
+  (:documentation "Spinner component: simple animated indicator via ticks.")
   (:export
    ;; Model
    #:spinner
@@ -92,6 +93,7 @@
   :print-name spinner-tick)
 
 (defun spinner-tick-msg-p (obj)
+  "Return true if OBJ is a spinner-tick-msg."
   (typep obj 'spinner-tick-msg))
 
 ;;; Spinner model
