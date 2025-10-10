@@ -1,0 +1,11 @@
+alexandria, ghcr.io/ocicl/alexandria@sha256:e433c2e076ed3bcf8641b97b00192680db2201d305efac9293539dee88c7fbf7, alexandria-20240503-8514d8e/alexandria.asd
+bordeaux-threads, ghcr.io/ocicl/bordeaux-threads@sha256:bbb32afe3987e102149cc019f4f7366a05f7a37d1503f5f86a27745e671c320a, bordeaux-threads-0.9.4/bordeaux-threads.asd
+global-vars, ghcr.io/ocicl/global-vars@sha256:d197e871c9c9abc4bf31b1186f5fd28f0ca848ebe2e9dddf2d82ecee01dbdc65, global-vars-20240503-c749f32/global-vars.asd
+global-vars-test, ghcr.io/ocicl/global-vars@sha256:d197e871c9c9abc4bf31b1186f5fd28f0ca848ebe2e9dddf2d82ecee01dbdc65, global-vars-20240503-c749f32/global-vars-test.asd
+trivial-channels, ghcr.io/ocicl/trivial-channels@sha256:9b190fcc1853729090ff0b27d24c916dcb166bbb5bad6456340f9b05f3689b3d, trivial-channels-20240503-e237011/trivial-channels.asd
+trivial-features, ghcr.io/ocicl/trivial-features@sha256:e278e24d39060fc7d3715531b16ddd9ab7f93f22ade53e436c0b86dbae3aa065, trivial-features-1.0/trivial-features.asd
+trivial-features-tests, ghcr.io/ocicl/trivial-features@sha256:e278e24d39060fc7d3715531b16ddd9ab7f93f22ade53e436c0b86dbae3aa065, trivial-features-1.0/trivial-features-tests.asd
+trivial-garbage, ghcr.io/ocicl/trivial-garbage@sha256:a85dcf4110ad60ae9f6c70970acceb2bf12402ce5326891643d35506059afb1d, trivial-garbage-20240503-3474f64/trivial-garbage.asd
+trivial-timeout, ghcr.io/ocicl/trivial-timeout@sha256:18f5f87e1fa3a35e5608cd424d22c2b24f581f810d9f9f8c6229b849c2f239ad, trivial-timeout-20240503-e70d9b4/trivial-timeout.asd
+trivial-timeout-test, ghcr.io/ocicl/trivial-timeout@sha256:18f5f87e1fa3a35e5608cd424d22c2b24f581f810d9f9f8c6229b849c2f239ad, trivial-timeout-20240503-e70d9b4/trivial-timeout-test.asd
+version-string, ghcr.io/ocicl/version-string@sha256:0d6103de97750f7a85d84b38b2495399817d550ce1e2369ba31a652e39e2b2e7, cl-version-string-20250701-2a9f9ba/version-string.asd
