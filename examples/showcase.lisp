@@ -60,9 +60,9 @@
 
 (defmethod tui:update-message ((model showcase-model) (msg tui:key-msg))
   (let ((key (tui:key-msg-key msg)))
-    (when (and (characterp key) (char= key #\q))
-      (values model (tui:quit-cmd))))
-  (values model nil))
+    (if (and (characterp key) (char= key #\q))
+        (values model (tui:quit-cmd))
+        (values model nil))))
 
 (defmethod tui:view ((model showcase-model))
   (let* ((width 70)
