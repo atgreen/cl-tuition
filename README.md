@@ -53,10 +53,10 @@ Tuition handles terminal concerns for you (raw mode, alternate screen, input dec
   <img src="assets/gifs/file-manager.gif" alt="File Manager">
   <p>
   <br>
-  <img src="assets/gifs/spinner.gif" width="400" alt="Spinner">
+  <img src="assets/gifs/spinner.gif" alt="Spinner">
   <p>
   <br>
-  <img src="assets/gifs/spinner.gif" width="400" alt="Spinner">
+  <img src="assets/gifs/progress.gif" alt="Progress">
   <p>
   <br>
   <sub>More GIFs/screenshots coming from the examples directory.</sub>
