@@ -12,6 +12,9 @@
 
 (in-package #:tuition-example-showcase)
 
+(eval-when (:load-toplevel :execute)
+  (asdf:load-system :tuition))
+
 ;;; Model
 (defclass showcase-model ()
   ((progress :initform 0.0 :accessor model-progress)
@@ -174,5 +177,5 @@
          (program (tui:make-program model :alt-screen t)))
     (tui:run program)))
 
-#+nil
-(main)
+(eval-when (:load-toplevel :execute)
+  (main))

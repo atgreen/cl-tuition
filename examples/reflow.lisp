@@ -12,6 +12,9 @@
 
 (in-package #:tuition-example-reflow)
 
+(eval-when (:load-toplevel :execute)
+  (asdf:load-system :tuition))
+
 ;;; Model
 (defclass reflow-model ()
   ((width :initform 40 :accessor model-width)
@@ -55,6 +58,9 @@ Line B" 4)))
 (defun main ()
   (let ((program (tui:make-program (make-instance 'reflow-model))))
     (tui:run program)))
+
+(eval-when (:load-toplevel :execute)
+  (main))
 
 #+nil
 (main)

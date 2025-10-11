@@ -12,6 +12,9 @@
 
 (in-package #:tuition-example-markdown)
 
+(eval-when (:load-toplevel :execute)
+  (asdf:load-system :tuition))
+
 ;;; Sample markdown content
 
 (defparameter *sample-markdown* "# Tuition Markdown Renderer
@@ -139,3 +142,6 @@ You can mix `code`, **bold**, *italic*, and [links](https://common-lisp.net) in 
   "Run the markdown rendering example."
   (let ((program (tui:make-program (make-instance 'markdown-model))))
     (tui:run program)))
+
+(eval-when (:load-toplevel :execute)
+  (main))

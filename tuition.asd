@@ -41,3 +41,13 @@
                              (:file "timer")
                              (:file "help"))))
   :in-order-to ((test-op (test-op "tuition/tests"))))
+
+(defsystem "tuition/tests"
+  :description "Test system for Tuition"
+  :author "Anthony Green <green@moxielogic.com>"
+  :license "MIT"
+  :depends-on ("tuition")
+  :components ((:module "tests"
+                :components ((:file "basic"))))
+  :perform (test-op (o c)
+                    (symbol-call :tuition-tests :run-tests)))

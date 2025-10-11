@@ -12,6 +12,9 @@
 
 (in-package #:tuition-example-list)
 
+(eval-when (:load-toplevel :execute)
+  (asdf:load-system :tuition))
+
 ;;; Model
 (defclass list-model ()
   ((items :initform '("Ramen" "Tomato Soup" "Hamburgers" "Cheeseburgers"
@@ -81,6 +84,9 @@
 (defun main ()
   (let ((program (tui:make-program (make-instance 'list-model))))
     (tui:run program)))
+
+(eval-when (:load-toplevel :execute)
+  (main))
 
 #+nil
 (main)

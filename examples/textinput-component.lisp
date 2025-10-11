@@ -13,6 +13,9 @@
 
 (in-package #:tuition-example-textinput-component)
 
+(eval-when (:load-toplevel :execute)
+  (asdf:load-system :tuition))
+
 ;;; Model
 (defclass form-model ()
   ((name-input :accessor form-name-input)
@@ -206,5 +209,5 @@
   (let ((program (tui:make-program (make-instance 'form-model))))
     (tui:run program)))
 
-#+nil
-(main)
+(eval-when (:load-toplevel :execute)
+  (main))

@@ -6,6 +6,8 @@
 ;;;
 ;;;; Spinner example - demonstrates tick-based animation
 
+(asdf:load-system :tuition)
+
 (defpackage #:tuition-example-spinner
   (:use #:cl #:tuition)
   (:export #:main))
@@ -66,5 +68,5 @@
   (let ((program (tui:make-program (make-instance 'spinner-model))))
     (tui:run program)))
 
-#+nil
-(main)
+(eval-when (:load-toplevel :execute)
+  (main))

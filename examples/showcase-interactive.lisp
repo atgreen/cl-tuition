@@ -1,5 +1,7 @@
 ;;; Interactive Showcase Example
 ;;;
+;;; SPDX-License-Identifier: MIT
+;;;
 ;;; This example demonstrates interactive layouts with mouse zones.
 ;;; It features clickable tabs, toggleable lists, and clickable dialogs.
 ;;; Ported from bubblezone's full-lipgloss example.
@@ -23,7 +25,7 @@
    (height :initform 3 :accessor tabs-height)
    (width :initform 0 :accessor tabs-width)
    (active :initform "Tuition" :accessor tabs-active)
-   (items :initform '("Tuition" "Styles" "Layouts" "Colors" "Borders") :accessor tabs-items)))
+   (items :initform '("Tuition" "Styles" "Layouts" "Colors" "Borders" "History") :accessor tabs-items)))
 
 (defmethod tui:init ((model tabs-model))
   nil)
@@ -129,7 +131,8 @@
   (values model nil))
 
 (defmethod tui:view ((model list-model))
-  (let* ((header-border (tui:make-border :bottom "─" :top "" :left "" :right ""
+  (let* ((column-width 30)  ; Fixed width like lipgloss
+         (header-border (tui:make-border :bottom "─" :top "" :left "" :right ""
                                         :top-left "" :top-right "" :bottom-left "" :bottom-right ""))
          (header (tui:render-border (list-title model) header-border
                                    :top nil :left nil :right nil
@@ -149,10 +152,14 @@
                                                  (tui:render-styled item-style (item-name item))))))))
          (list-border (tui:make-border :right "│" :top "" :bottom "" :left ""
                                       :top-left "" :top-right "" :bottom-left "" :bottom-right ""))
+         (list-style (tui:make-style :width (+ column-width 1)
+                                     :height (list-height model)
+                                     :margin-right 2))
          (content (apply #'tui:join-vertical tui:+left+ rendered-items)))
-    (tui:render-border content list-border
-                      :top nil :bottom nil :left nil
-                      :fg-color *subtle*)))
+    (tui:render-styled list-style
+                      (tui:render-border content list-border
+                                        :top nil :bottom nil :left nil
+                                        :fg-color *subtle*))))
 
 ;;; History Model
 (defclass history-model ()
@@ -175,24 +182,57 @@
          (item-width (if (> num-items 0)
                         (max 1 (- (floor (history-width model) num-items) 2))
                         1))
-         (item-height (max 1 (- (history-height model) 2)))
-         (rendered-items
-          (loop for item in (history-items model)
-                for bg = (if (string= item (history-active model))
-                            *highlight*
-                            *subtle*)
-                collect (let ((history-style (tui:make-style
-                                              :foreground (tui:parse-hex-color "#FAFAFA")
-                                              :background bg
-                                              :margin 1
-                                              :padding-top 1
-                                              :padding-bottom 1
-                                              :padding-left 2
-                                              :padding-right 2
-                                              :width item-width
-                                              :height item-height)))
-                         (tui:render-styled history-style item)))))
-    (apply #'tui:join-horizontal tui:+top+ rendered-items)))
+         (item-height (max 1 (- (history-height model) 2))))
+    (let ((rendered-items
+           (loop for item in (history-items model)
+                 for i from 0
+                 for bg = (if (string= item (history-active model))
+                             *highlight*
+                             *subtle*)
+                 collect (let* ((content-width (max 1 (- item-width 4)))
+                                (content-height (max 1 (- item-height 2)))
+                                (wrapped-text (tui:wrap-text item content-width :break-words t))
+                                ;; Truncate to fit height
+                                (lines (tui:split-string-by-newline wrapped-text))
+                                (truncated-lines (if (> (length lines) content-height)
+                                                    (append (subseq lines 0 (- content-height 1))
+                                                            (list "..."))
+                                                    lines))
+                                (final-text (format nil "~{~A~^~%~}" truncated-lines))
+                                (history-style (tui:make-style
+                                                :foreground (tui:parse-hex-color "#FAFAFA")
+                                                :background *highlight*  ; Use purple like lipgloss
+                                                :margin-top 1
+                                                :margin-right 3
+                                                :margin-bottom 0
+                                                :margin-left 0
+                                                :padding-top 1
+                                                :padding-bottom 1
+                                                :padding-left 2
+                                                :padding-right 2
+                                                :width item-width
+                                                :height item-height))
+                                (rendered (tui:render-styled history-style final-text)))
+                           ;; Debug: write rendered box info to file
+                           (with-open-file (f "/tmp/history-margins-debug.txt" :direction :output
+                                              :if-exists :append :if-does-not-exist :create)
+                             (format f "Box ~A rendered width: ~A~%" i (tui:width rendered))
+                             (format f "First line: '~A'~%~%" (car (tui:split-string-by-newline rendered)))
+                             (finish-output f))
+                           rendered))))
+      (let ((result (apply #'tui:join-horizontal tui:+top+ rendered-items)))
+        ;; Debug the final joined result
+        (with-open-file (f "/tmp/history-margins-debug.txt" :direction :output
+                           :if-exists :supersede :if-does-not-exist :create)
+          (format f "Number of boxes: ~A~%" (length rendered-items))
+          (format f "First box width: ~A~%" (tui:width (first rendered-items)))
+          (format f "Final joined width: ~A~%~%" (tui:width result))
+          (format f "First 3 lines of result:~%")
+          (let ((lines (tui:split-string-by-newline result)))
+            (loop for i from 0 below (min 3 (length lines))
+                  do (format f "~A: '~A'~%" i (nth i lines))))
+          (finish-output f))
+        result))))
 
 ;;; Main Model
 (defclass showcase-model ()
@@ -231,9 +271,22 @@
         (make-instance 'history-model
                        :id (tui:zone-new-prefix)
                        :items (list
-                              "The Romans learned from the Greeks that quinces slowly cooked with honey would \"set\" when cool. The Apicius gives a recipe for preserving whole quinces, stems and leaves attached, in a bath of honey diluted with defrutum: Roman marmalade. Preserves of quince and lemon appear (along with rose, apple, plum and pear) in the Book of ceremonies of the Byzantine Emperor Constantine VII Porphyrogennetos."
-                              "Medieval quince preserves, which went by the French name cotignac, produced in a clear version and a fruit pulp version, began to lose their medieval seasoning of spices in the 16th century. In the 17th century, La Varenne provided recipes for both thick and clear cotignac."
-                              "In 1524, Henry VIII, King of England, received a \"box of marmalade\" from Mr. Hull of Exeter. This was probably marmelada, a solid quince paste from Portugal, still made and sold in southern Europe today. It became a favourite treat of Anne Boleyn and her ladies in waiting."))))
+                              (concatenate 'string
+                                          "The Romans learned from the Greeks that quinces slowly cooked with honey would \"set\" when cool. "
+                                          "The Apicius gives a recipe for preserving whole quinces, stems and leaves attached, "
+                                          "in a bath of honey diluted with defrutum: Roman marmalade. "
+                                          "Preserves of quince and lemon appear (along with rose, apple, plum and pear) "
+                                          "in the Book of ceremonies of the Byzantine Emperor Constantine VII Porphyrogennetos.")
+                              (concatenate 'string
+                                          "Medieval quince preserves, which went by the French name cotignac, "
+                                          "produced in a clear version and a fruit pulp version, "
+                                          "began to lose their medieval seasoning of spices in the 16th century. "
+                                          "In the 17th century, La Varenne provided recipes for both thick and clear cotignac.")
+                              (concatenate 'string
+                                          "In 1524, Henry VIII, King of England, received a \"box of marmalade\" from Mr. Hull of Exeter. "
+                                          "This was probably marmelada, a solid quince paste from Portugal, "
+                                          "still made and sold in southern Europe today. "
+                                          "It became a favourite treat of Anne Boleyn and her ladies in waiting.")))))
 
 (defmethod tui:init ((model showcase-model))
   ;; Initialize child models with proper dimensions
@@ -406,6 +459,10 @@
                              (tui:render-border "ASCII Border" tui:*border-ascii*))))
                (apply #'tui:join-horizontal tui:+top+ examples)))
 
+            ;; History tab: Show marmalade history
+            ((string= active-tab "History")
+             (tui:view (model-history model)))
+
             ;; Fallback
             (t "Unknown tab")))
          (content (tui:join-vertical tui:+top+
@@ -421,6 +478,15 @@
   ;; Initialize global zone manager
   (tui:init-global-zone-manager)
 
+  ;; Suppress SBCL poll warnings during terminal I/O
+  #+sbcl
+  (handler-bind ((warning #'muffle-warning))
+    (let ((program (tui:make-program (make-instance 'showcase-model)
+                                    :alt-screen t
+                                    :mouse :cell-motion)))
+      (tui:run program)))
+
+  #-sbcl
   (let ((program (tui:make-program (make-instance 'showcase-model)
                                   :alt-screen t
                                   :mouse :cell-motion)))

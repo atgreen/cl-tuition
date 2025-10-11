@@ -6,6 +6,8 @@
 ;;;
 ;;;; Progress bar example - demonstrates animated progress
 
+(asdf:load-system :tuition)
+
 (defpackage #:tuition-example-progress
   (:use #:cl #:tuition)
   (:export #:main))
@@ -64,5 +66,5 @@
   (let ((program (tui:make-program (make-instance 'progress-model))))
     (tui:run program)))
 
-#+nil
-(main)
+(eval-when (:load-toplevel :execute)
+  (main))

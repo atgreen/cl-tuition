@@ -21,19 +21,20 @@
   (unless (string= view-string (last-output r))
     (setf (last-output r) view-string)
     ;; Clear screen and move to home before rendering
-    (clear-screen)
-    (move-cursor-home)
-    (write-string view-string (output-stream r))
-    (force-output (output-stream r))))
+    (let ((stream (output-stream r)))
+      (clear-screen stream)
+      (move-cursor-home stream)
+      (write-string view-string stream)
+      (force-output stream))))
 
-(defun move-cursor-home ()
+(defun move-cursor-home (&optional (stream *standard-output*))
   "Move cursor to home position (1,1)."
-  (format t "~C[H" #\Escape))
+  (format stream "~C[H" #\Escape))
 
-(defun clear-to-end-of-screen ()
+(defun clear-to-end-of-screen (&optional (stream *standard-output*))
   "Clear from cursor to end of screen."
-  (format t "~C[J" #\Escape))
+  (format stream "~C[J" #\Escape))
 
-(defun move-cursor (row col)
+(defun move-cursor (row col &optional (stream *standard-output*))
   "Move cursor to specific position (1-indexed)."
-  (format t "~C[~D;~DH" #\Escape row col))
+  (format stream "~C[~D;~DH" #\Escape row col))

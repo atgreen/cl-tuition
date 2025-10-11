@@ -12,6 +12,9 @@
 
 (in-package #:tuition-example-zones)
 
+(eval-when (:load-toplevel :execute)
+  (asdf:load-system :tuition))
+
 ;;; Model
 (defclass zones-model ()
   ((selected :initform nil :accessor model-selected)
@@ -104,5 +107,5 @@
                                    :mouse :cell-motion)))
     (tui:run program)))
 
-#+nil
-(main)
+(eval-when (:load-toplevel :execute)
+  (main))

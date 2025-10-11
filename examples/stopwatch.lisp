@@ -12,6 +12,9 @@
 
 (in-package #:tuition-example-stopwatch)
 
+(eval-when (:load-toplevel :execute)
+  (asdf:load-system :tuition))
+
 ;;; Tick message for updating elapsed time
 (tui:defmessage tick-msg ())
 
@@ -99,6 +102,9 @@
 (defun main ()
   (let ((program (tui:make-program (make-instance 'stopwatch-model))))
     (tui:run program)))
+
+(eval-when (:load-toplevel :execute)
+  (main))
 
 #+nil
 (main)

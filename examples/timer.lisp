@@ -12,6 +12,9 @@
 
 (in-package #:tuition-example-timer)
 
+(eval-when (:load-toplevel :execute)
+  (asdf:load-system :tuition))
+
 ;;; Messages
 (tui:defmessage tick-msg ())
 (tui:defmessage timeout-msg ())
@@ -125,5 +128,5 @@
   (let ((program (tui:make-program (make-instance 'timer-model))))
     (tui:run program)))
 
-#+nil
-(main)
+(eval-when (:load-toplevel :execute)
+  (main))

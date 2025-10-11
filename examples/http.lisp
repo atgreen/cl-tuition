@@ -6,6 +6,8 @@
 ;;;
 ;;;; HTTP example - demonstrates async HTTP requests
 
+(asdf:load-system :tuition)
+
 (defpackage #:tuition-example-http
   (:use #:cl #:tuition)
   (:export #:main))
@@ -82,5 +84,5 @@
   (let ((program (tui:make-program (make-instance 'http-model))))
     (tui:run program)))
 
-#+nil
-(main)
+(eval-when (:load-toplevel :execute)
+  (main))

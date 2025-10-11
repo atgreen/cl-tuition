@@ -9,17 +9,17 @@ Reusable TUI components for Tuition applications.
 An animated loading spinner with multiple styles.
 
 ```lisp
-(use-package :tea.spinner)
+(use-package :tui.spinner)
 
 ;; Create a spinner
 (defparameter *spinner* (make-spinner :frames *spinner-dot* :fps 0.1))
 
 ;; In your init
-(defmethod tea:init ((model my-model))
+(defmethod tui:init ((model my-model))
   (spinner-init *spinner*))
 
 ;; In your update - delegate spinner messages
-(defmethod tea:update ((model my-model) msg)
+(defmethod tui:update ((model my-model) msg)
   (cond
     ((spinner-tick-msg-p msg)
      (multiple-value-bind (new-spinner cmd)
@@ -29,7 +29,7 @@ An animated loading spinner with multiple styles.
     ...))
 
 ;; In your view
-(defmethod tea:view ((model my-model))
+(defmethod tui:view ((model my-model))
   (format nil "Loading... ~A" (spinner-view (model-spinner model))))
 ```
 
@@ -52,7 +52,7 @@ An animated loading spinner with multiple styles.
 Single-line text input field with cursor support.
 
 ```lisp
-(use-package :tea.textinput)
+(use-package :tui.textinput)
 
 ;; Create a text input
 (defparameter *input* (make-textinput
@@ -62,9 +62,9 @@ Single-line text input field with cursor support.
                        :char-limit 50))
 
 ;; In your update - delegate key messages
-(defmethod tea:update ((model my-model) msg)
+(defmethod tui:update ((model my-model) msg)
   (cond
-    ((tea:key-msg-p msg)
+    ((tui:key-msg-p msg)
      (multiple-value-bind (new-input cmd)
          (textinput-update (model-input model) msg)
        (setf (model-input model) new-input)
@@ -72,7 +72,7 @@ Single-line text input field with cursor support.
     ...))
 
 ;; In your view
-(defmethod tea:view ((model my-model))
+(defmethod tui:view ((model my-model))
   (textinput-view (model-input model)))
 
 ;; Get the value
@@ -96,7 +96,7 @@ Single-line text input field with cursor support.
 Visual progress indicator with customizable appearance.
 
 ```lisp
-(use-package :tea.progress)
+(use-package :tui.progress)
 
 ;; Create a progress bar
 (defparameter *progress* (make-progress
@@ -107,7 +107,7 @@ Visual progress indicator with customizable appearance.
                           :empty-char #\░))
 
 ;; In your view
-(defmethod tea:view ((model my-model))
+(defmethod tui:view ((model my-model))
   (format nil "Download: ~A" (progress-view (model-progress model))))
 
 ;; Update progress
@@ -128,7 +128,7 @@ Visual progress indicator with customizable appearance.
 Scrollable list with selection and keyboard navigation.
 
 ```lisp
-(use-package :tea.list)
+(use-package :tui.list)
 
 ;; Create a list
 (defparameter *list* (make-list-view
@@ -136,9 +136,9 @@ Scrollable list with selection and keyboard navigation.
                       :height 10))
 
 ;; In your update - delegate key messages
-(defmethod tea:update ((model my-model) msg)
+(defmethod tui:update ((model my-model) msg)
   (cond
-    ((tea:key-msg-p msg)
+    ((tui:key-msg-p msg)
      (multiple-value-bind (new-list cmd)
          (list-update (model-list model) msg)
        (setf (model-list model) new-list)
@@ -146,7 +146,7 @@ Scrollable list with selection and keyboard navigation.
     ...))
 
 ;; In your view
-(defmethod tea:view ((model my-model))
+(defmethod tui:view ((model my-model))
   (list-view-render (model-list model)))
 
 ;; Get selected item
@@ -186,46 +186,46 @@ All components follow a consistent pattern:
 
 ```lisp
 (defclass my-model ()
-  ((spinner :initform (tea.spinner:make-spinner) :accessor model-spinner)
-   (input :initform (tea.textinput:make-textinput) :accessor model-input)
-   (progress :initform (tea.progress:make-progress) :accessor model-progress)))
+  ((spinner :initform (tui.spinner:make-spinner) :accessor model-spinner)
+   (input :initform (tui.textinput:make-textinput) :accessor model-input)
+   (progress :initform (tui.progress:make-progress) :accessor model-progress)))
 
-(defmethod tea:init ((model my-model))
+(defmethod tui:init ((model my-model))
   ;; Return initial command from a component
-  (tea.spinner:spinner-init (model-spinner model)))
+  (tui.spinner:spinner-init (model-spinner model)))
 
-(defmethod tea:update ((model my-model) msg)
+(defmethod tui:update ((model my-model) msg)
   (cond
     ;; Delegate to appropriate component
-    ((tea.spinner:spinner-tick-msg-p msg)
+    ((tui.spinner:spinner-tick-msg-p msg)
      (multiple-value-bind (new-spinner cmd)
-         (tea.spinner:spinner-update (model-spinner model) msg)
+         (tui.spinner:spinner-update (model-spinner model) msg)
        (setf (model-spinner model) new-spinner)
        (values model cmd)))
 
-    ((tea:key-msg-p msg)
+    ((tui:key-msg-p msg)
      (multiple-value-bind (new-input cmd)
-         (tea.textinput:textinput-update (model-input model) msg)
+         (tui.textinput:textinput-update (model-input model) msg)
        (setf (model-input model) new-input)
        (values model cmd)))
 
     (t (values model nil))))
 
-(defmethod tea:view ((model my-model))
+(defmethod tui:view ((model my-model))
   (format nil "~A~%~A~%~A~%"
-          (tea.spinner:spinner-view (model-spinner model))
-          (tea.textinput:textinput-view (model-input model))
-          (tea.progress:progress-view (model-progress model))))
+          (tui.spinner:spinner-view (model-spinner model))
+          (tui.textinput:textinput-view (model-input model))
+          (tui.progress:progress-view (model-progress model))))
 ```
 
 ## Package Nicknames
 
 For convenience, all components have short nicknames:
 
-- `tea.spinner` = `tuition.components.spinner`
-- `tea.textinput` = `tuition.components.textinput`
-- `tea.progress` = `tuition.components.progress`
-- `tea.list` = `tuition.components.list`
+- `tui.spinner` = `tuition.components.spinner`
+- `tui.textinput` = `tuition.components.textinput`
+- `tui.progress` = `tuition.components.progress`
+- `tui.list` = `tuition.components.list`
 
 ## Design Philosophy
 

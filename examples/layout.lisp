@@ -1,5 +1,7 @@
 ;;; Layout Example
 ;;;
+;;; SPDX-License-Identifier: MIT
+;;;
 ;;; This example demonstrates various Tuition style and layout features,
 ;;; ported from the Lipgloss layout example.
 ;;; It showcases tabs, dialogs, lists, color grids, and status bars.
@@ -8,7 +10,8 @@
 
 (defpackage :tuition.examples.layout
   (:use :cl)
-  (:local-nicknames (#:tui #:tuition)))
+  (:local-nicknames (#:tui #:tuition))
+  (:documentation "Layout example demonstrating Tuition style and layout features."))
 
 (in-package :tuition.examples.layout)
 
@@ -17,6 +20,7 @@
 
 ;;; Helper function to create rainbow text
 (defun %hex->rgb (hex)
+  "Parse hex color string to RGB values."
   (let* ((clean (string-upcase (string-trim '(#\#) hex)))
          (r (parse-integer (subseq clean 0 2) :radix 16))
          (g (parse-integer (subseq clean 2 4) :radix 16))
@@ -24,9 +28,11 @@
     (values r g b)))
 
 (defun %rgb->hex (r g b)
+  "Convert RGB values to hex color string."
   (format nil "#~2,'0X~2,'0X~2,'0X" (max 0 (min 255 r)) (max 0 (min 255 g)) (max 0 (min 255 b))))
 
 (defun %lerp (a b frac)
+  "Linear interpolation between A and B by fraction FRAC."
   (+ a (round (* frac (- b a)))))
 
 (defun gradient-colors (anchors steps)
@@ -301,9 +307,19 @@
                                              :height 19
                                              :width +column-width+
                                              :align tui:+left+))
-         (history-a "The Romans learned from the Greeks that quinces slowly cooked with honey would \"set\" when cool. The Apicius gives a recipe for preserving whole quinces, stems and leaves attached, in a bath of honey diluted with defrutum: Roman marmalade. Preserves of quince and lemon appear (along with rose, apple, plum and pear) in the Book of ceremonies of the Byzantine Emperor Constantine VII Porphyrogennetos.")
-         (history-b "Medieval quince preserves, which went by the French name cotignac, produced in a clear version and a fruit pulp version, began to lose their medieval seasoning of spices in the 16th century. In the 17th century, La Varenne provided recipes for both thick and clear cotignac.")
-         (history-c "In 1524, Henry VIII, King of England, received a \"box of marmalade\" from Mr. Hull of Exeter. This was probably marmelada, a solid quince paste from Portugal, still made and sold in southern Europe today. It became a favourite treat of Anne Boleyn and her ladies in waiting."))
+         (history-a (concatenate 'string
+                      "The Romans learned from the Greeks that quinces slowly cooked with honey would \"set\" when cool. "
+                      "The Apicius gives a recipe for preserving whole quinces, stems and leaves attached, in a bath of honey "
+                      "diluted with defrutum: Roman marmalade. Preserves of quince and lemon appear (along with rose, apple, plum and pear) "
+                      "in the Book of ceremonies of the Byzantine Emperor Constantine VII Porphyrogennetos."))
+         (history-b (concatenate 'string
+                      "Medieval quince preserves, which went by the French name cotignac, produced in a clear version and a fruit pulp version, "
+                      "began to lose their medieval seasoning of spices in the 16th century. In the 17th century, "
+                      "La Varenne provided recipes for both thick and clear cotignac."))
+         (history-c (concatenate 'string
+                      "In 1524, Henry VIII, King of England, received a \"box of marmalade\" from Mr. Hull of Exeter. "
+                      "This was probably marmelada, a solid quince paste from Portugal, still made and sold in southern Europe today. "
+                      "It became a favourite treat of Anne Boleyn and her ladies in waiting.")))
     (tui:join-horizontal tui:+top+
                         (tui:render-styled history-style-right history-a)
                         (tui:render-styled history-style-center history-b)
@@ -361,7 +377,7 @@
          ;; Mirror Lip Gloss: fixed color grid dimensions
          (colors (color-grid 14 8))
          (colors-styled colors)
-         (l1 (car lists))
+         (l1 (first lists))
          (l2 (cadr lists))
          (lists-and-colors (tui:join-horizontal tui:+top+ l1 l2 colors-styled))
          (history (build-history))

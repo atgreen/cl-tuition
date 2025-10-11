@@ -4,8 +4,7 @@
 ;;; This example shows how to use the keybinding system to create
 ;;; structured key handlers with auto-generated help text.
 
-(require :asdf)
-(asdf:load-system :tuition :verbose nil)
+(asdf:load-system :tuition)
 
 (defpackage #:keybindings-example
   (:use #:cl #:tuition))
@@ -96,12 +95,12 @@
     (with-output-to-string (s)
       ;; Title
       (format s "~A~%~%"
-              (colored *fg-cyan* (bold "Key Binding System Demo")))
+              (colored (bold "Key Binding System Demo") :fg *fg-cyan*))
 
       ;; Status bar
       (format s "Mode: ~A~%~%"
-              (colored (if (eq mode :edit) *fg-green* *fg-yellow*)
-                      (format nil "~A" mode)))
+              (colored (format nil "~A" mode)
+                      :fg (if (eq mode :edit) *fg-green* *fg-yellow*)))
 
       ;; Items list
       (format s "Select an item:~%")
@@ -109,7 +108,7 @@
             for i from 0
             do (format s "  ~A ~A~%"
                       (if (= i sel)
-                          (colored *fg-green* "►")
+                          (colored "►" :fg *fg-green*)
                           " ")
                       (if (= i sel)
                           (bold item)
@@ -121,7 +120,7 @@
           ;; Full help
           (progn
             (format s "~A~%~%"
-                    (colored *fg-bright-blue* (bold "Available Keys:")))
+                    (colored (bold "Available Keys:") :fg *fg-bright-blue*))
             (format s "~A~%"
                     (keybindings-help (list (getf bindings :quit)
                                             (getf bindings :up)
@@ -132,8 +131,8 @@
                                       :format :full)))
           ;; Inline help
           (format s "~A: ~A~%"
-                  (colored *fg-bright-black* "Keys")
-                  (colored *fg-bright-black* help-text))))))
+                  (colored "Keys" :fg *fg-bright-black*)
+                  (colored help-text :fg *fg-bright-black*))))))
 
 ;;; Run the program
 (defun main ()

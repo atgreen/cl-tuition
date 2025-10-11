@@ -6,6 +6,8 @@
 ;;;
 ;;;; Simple countdown example - counts down from 5 and exits
 
+(asdf:load-system :tuition)
+
 (defpackage #:tuition-example-simple
   (:use #:cl #:tuition))
 
@@ -53,6 +55,5 @@
   (let ((program (tui:make-program (make-instance 'countdown-model :seconds 5))))
     (tui:run program)))
 
-;;; Allow running from command line
-#+nil
-(main)
+(eval-when (:load-toplevel :execute)
+  (main))

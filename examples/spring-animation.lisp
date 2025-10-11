@@ -12,6 +12,9 @@
 
 (in-package #:tuition-example-spring-animation)
 
+(eval-when (:load-toplevel :execute)
+  (asdf:load-system :tuition))
+
 ;;; Tick message
 (tui:defmessage tick-msg ())
 
@@ -141,3 +144,6 @@
   "Run the spring animation example."
   (let ((program (tui:make-program (make-instance 'spring-model))))
     (tui:run program)))
+
+(eval-when (:load-toplevel :execute)
+  (main))

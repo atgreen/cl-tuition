@@ -12,6 +12,9 @@
 
 (in-package #:tuition-example-spinner-component)
 
+(eval-when (:load-toplevel :execute)
+  (asdf:load-system :tuition))
+
 ;;; Model
 (defclass spinner-component-model ()
   ((spinner :initform (tui.spinner:make-spinner
@@ -64,5 +67,5 @@
   (let ((program (tui:make-program (make-instance 'spinner-component-model))))
     (tui:run program)))
 
-#+nil
-(main)
+(eval-when (:load-toplevel :execute)
+  (main))

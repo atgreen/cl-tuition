@@ -230,19 +230,33 @@ Options (keyword args only):
    :name "tuition-sequence"))
 
 (defun input-loop (program)
-  "Read input and send key messages to the program."
+  "Read input and send input messages (key/mouse/paste) to the program."
   ;; Set the input stream for this thread
   (setf *input-stream* (program-tty-stream program))
   (handler-case
       (loop while (program-running program) do
         (handler-case
-            (let ((key-msg (read-key)))
-              (when key-msg
-                (%ilog "input-loop: dispatch key key=~A alt=~A ctrl=~A"
-                       (key-msg-key key-msg)
-                       (key-msg-alt key-msg)
-                       (key-msg-ctrl key-msg))
-                (send program key-msg)))
+            (let ((msg (read-key)))
+              (when msg
+                ;; Log by message type to avoid calling key accessors on mouse msgs
+                (cond
+                  ((key-msg-p msg)
+                   (%ilog "input-loop: dispatch key key=~A alt=~A ctrl=~A"
+                          (key-msg-key msg)
+                          (key-msg-alt msg)
+                          (key-msg-ctrl msg)))
+                  ((mouse-msg-p msg)
+                   (%ilog "input-loop: dispatch mouse x=~A y=~A button=~A action=~A"
+                          (mouse-msg-x msg)
+                          (mouse-msg-y msg)
+                          (mouse-msg-button msg)
+                          (mouse-msg-action msg)))
+                  ((paste-msg-p msg)
+                   (%ilog "input-loop: dispatch paste chars=~A"
+                          (length (paste-msg-text msg))))
+                  (t
+                   (%ilog "input-loop: dispatch msg ~S" msg)))
+                (send program msg)))
           (error (e)
             (handle-error :input-loop e)))
         (sleep 0.01)) ; Small delay to prevent busy-waiting

@@ -6,6 +6,8 @@
 ;;;
 ;;;; Interactive counter example - demonstrates key handling
 
+(asdf:load-system :tuition)
+
 (defpackage #:tuition-example-counter
   (:use #:cl #:tuition)
   (:export #:main))
@@ -67,6 +69,9 @@
 (defun main ()
   (let ((program (tui:make-program (make-instance 'counter-model))))
     (tui:run program)))
+
+(eval-when (:load-toplevel :execute)
+  (main))
 
 #+nil
 (main)

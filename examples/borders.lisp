@@ -6,6 +6,8 @@
 ;;;
 ;;;; Borders example - demonstrates border styles
 
+(asdf:load-system :tuition)
+
 (defpackage #:tuition-example-borders
   (:use #:cl #:tuition)
   (:export #:main))
@@ -64,5 +66,5 @@
   (let ((program (tui:make-program (make-instance 'borders-model))))
     (tui:run program)))
 
-#+nil
-(main)
+(eval-when (:load-toplevel :execute)
+  (main))

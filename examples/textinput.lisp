@@ -6,6 +6,8 @@
 ;;;
 ;;;; Text input example - demonstrates simple text input
 
+(asdf:load-system :tuition)
+
 (defpackage #:tuition-example-textinput
   (:use #:cl #:tuition)
   (:export #:main))
@@ -84,14 +86,14 @@
   (let* ((input (textinput-input model))
          (cursor-pos (textinput-cursor model))
          (display (if (zerop (length input))
-                      "Pikachu"  ; placeholder
+                      (render-styled (make-style :foreground tui:*fg-bright-green* :faint t) "Green")
                       (concatenate 'string
                                   (subseq input 0 cursor-pos)
                                   "█"  ; cursor
                                   (if (< cursor-pos (length input))
                                       (subseq input cursor-pos)
                                       "")))))
-    (format nil "~%What's your favorite Pokémon?~%~%> ~A~%~%(esc to quit)~%"
+    (format nil "~%What's your favorite colour?~%~%> ~A~%~%(esc to quit)~%"
             display)))
 
 ;;; Main entry point
@@ -99,5 +101,5 @@
   (let ((program (tui:make-program (make-instance 'textinput-model))))
     (tui:run program)))
 
-#+nil
-(main)
+(eval-when (:load-toplevel :execute)
+  (main))

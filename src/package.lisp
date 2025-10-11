@@ -193,6 +193,9 @@
    #:render-markdown
    #:markdown
 
+   ;; Terminal utilities
+   #:get-terminal-size
+
    ;; Conditions and error handling
    #:tuition-error
    #:terminal-error

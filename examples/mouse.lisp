@@ -12,6 +12,9 @@
 
 (in-package #:tuition-example-mouse)
 
+(eval-when (:load-toplevel :execute)
+  (asdf:load-system :tuition))
+
 ;;; Model
 (defclass mouse-model ()
   ((last-event :initform nil :accessor mouse-last-event)))
@@ -59,5 +62,5 @@
                                    :mouse :all-motion)))
     (tui:run program)))
 
-#+nil
-(main)
+(eval-when (:load-toplevel :execute)
+  (main))

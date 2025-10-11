@@ -83,7 +83,10 @@
   "Get the current terminal size as (width . height)."
   #+unix
   (handler-case
-      (let ((output (uiop:run-program '("stty" "size") :output :string :error-output nil)))
+      ;; Use /dev/tty to query the actual terminal, not stdin
+      (let ((output (uiop:run-program '("sh" "-c" "stty size < /dev/tty")
+                                     :output :string
+                                     :error-output nil)))
         (let ((parts (uiop:split-string output)))
           (when (= 2 (length parts))
             (cons (parse-integer (second parts))
@@ -93,10 +96,10 @@
   #+windows
   (cons 80 24)) ; default fallback
 
-(defun clear-screen ()
+(defun clear-screen (&optional (stream *standard-output*))
   "Clear the terminal screen."
-  (format t "~C[2J~C[H" #\Escape #\Escape)
-  (force-output))
+  (format stream "~C[2J~C[H" #\Escape #\Escape)
+  (force-output stream))
 
 (defun hide-cursor ()
   "Hide the terminal cursor."

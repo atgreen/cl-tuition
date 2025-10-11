@@ -12,6 +12,9 @@
 
 (in-package #:tuition-example-window-size)
 
+(eval-when (:load-toplevel :execute)
+  (asdf:load-system :tuition))
+
 ;;; Model
 (defclass window-size-model ()
   ((size :initform nil :accessor window-size)))
@@ -48,6 +51,9 @@
 (defun main ()
   (let ((program (tui:make-program (make-instance 'window-size-model))))
     (tui:run program)))
+
+(eval-when (:load-toplevel :execute)
+  (main))
 
 #+nil
 (main)

@@ -194,59 +194,11 @@ Internal helper for markdown rendering."
 
 ;;; Styling Helper
 
-(defun resolve-color (color-keyword)
-  "Resolve a color keyword to an ANSI code string."
-  (when color-keyword
-    (case color-keyword
-      ;; Foreground colors
-      (:black *fg-black*)
-      (:red *fg-red*)
-      (:green *fg-green*)
-      (:yellow *fg-yellow*)
-      (:blue *fg-blue*)
-      (:magenta *fg-magenta*)
-      (:cyan *fg-cyan*)
-      (:white *fg-white*)
-      (:bright-black *fg-bright-black*)
-      (:bright-red *fg-bright-red*)
-      (:bright-green *fg-bright-green*)
-      (:bright-yellow *fg-bright-yellow*)
-      (:bright-blue *fg-bright-blue*)
-      (:bright-magenta *fg-bright-magenta*)
-      (:bright-cyan *fg-bright-cyan*)
-      (:bright-white *fg-bright-white*)
-      ;; Special cases
-      (:bold "1")
-      (:italic "3")
-      (t (if (stringp color-keyword) color-keyword nil)))))
-
-(defun resolve-bg-color (color-keyword)
-  "Resolve a background color keyword to an ANSI code string."
-  (when color-keyword
-    (case color-keyword
-      (:black *bg-black*)
-      (:red *bg-red*)
-      (:green *bg-green*)
-      (:yellow *bg-yellow*)
-      (:blue *bg-blue*)
-      (:magenta *bg-magenta*)
-      (:cyan *bg-cyan*)
-      (:white *bg-white*)
-      (:bright-black *bg-bright-black*)
-      (:bright-red *bg-bright-red*)
-      (:bright-green *bg-bright-green*)
-      (:bright-yellow *bg-bright-yellow*)
-      (:bright-blue *bg-bright-blue*)
-      (:bright-magenta *bg-bright-magenta*)
-      (:bright-cyan *bg-bright-cyan*)
-      (:bright-white *bg-bright-white*)
-      (t (if (stringp color-keyword) color-keyword nil)))))
-
 (defun style-text (text &key color bg bold italic underline)
   "Apply ANSI styling to text. Helper function for markdown rendering."
   (if (or color bg bold italic underline)
-      (let ((s (make-style :foreground (resolve-color color)
-                          :background (resolve-bg-color bg)
+      (let ((s (make-style :foreground color
+                          :background bg
                           :bold bold
                           :italic italic
                           :underline underline)))

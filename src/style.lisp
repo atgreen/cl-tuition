@@ -195,6 +195,47 @@
     ;; Complete color or regular color
     (t (resolve-color color))))
 
+;;; Ensure color codes are in the correct foreground/background form
+
+(defun %maybe-parse-int (s)
+  (ignore-errors (parse-integer s :junk-allowed t)))
+
+(defun %replace-first (str from to)
+  (let ((pos (search from str)))
+    (if pos
+        (concatenate 'string (subseq str 0 pos) to (subseq str (+ pos (length from))))
+        str)))
+
+(defun as-foreground-code (code)
+  "Normalize CODE so it represents a foreground SGR parameter."
+  (cond
+    ((null code) nil)
+    ((not (stringp code)) code)
+    ;; truecolor 48;2 -> 38;2
+    ((search "48;2;" code) (%replace-first code "48;2;" "38;2;"))
+    ;; otherwise coerce numeric background to foreground
+    (t
+     (let ((n (%maybe-parse-int code)))
+       (cond
+         ((and n (<= 40 n) (<= n 47)) (format nil "~D" (- n 10)))
+         ((and n (<= 100 n) (<= n 107)) (format nil "~D" (- n 10)))
+         (t code))))))
+
+(defun as-background-code (code)
+  "Normalize CODE so it represents a background SGR parameter."
+  (cond
+    ((null code) nil)
+    ((not (stringp code)) code)
+    ;; truecolor 38;2 -> 48;2
+    ((search "38;2;" code) (%replace-first code "38;2;" "48;2;"))
+    ;; otherwise coerce numeric foreground to background
+    (t
+     (let ((n (%maybe-parse-int code)))
+       (cond
+         ((and n (<= 30 n) (<= n 37)) (format nil "~D" (+ n 10)))
+         ((and n (<= 90 n) (<= n 97)) (format nil "~D" (+ n 10)))
+         (t code))))))
+
 ;;; Foreground colors (30-37, 90-97)
 (defparameter *fg-black* "30")
 (defparameter *fg-red* "31")
@@ -308,42 +349,25 @@
     s))
 
 (defun render-styled (style text)
-  "Render text with the given style applied."
-  (let ((codes '())
-        (result text))
+  "Render TEXT with STYLE, ensuring ANSI colors cover the whole block.
 
-    ;; Collect ANSI codes
-    (when (style-bold style) (push *bold* codes))
-    (when (style-faint style) (push *dim* codes))
-    (when (style-italic style) (push *italic* codes))
-    (when (style-underline style) (push *underline* codes))
-    (when (style-blink style) (push *blink* codes))
-    (when (style-reverse style) (push *reverse* codes))
-    (when (style-strikethrough style) (push *strikethrough* codes))
-    ;; Resolve adaptive colors
-    (when (style-foreground style)
-      (push (resolve-adaptive-color (style-foreground style)) codes))
-    (when (style-background style)
-      (push (resolve-adaptive-color (style-background style)) codes))
-
-    ;; Apply ANSI formatting
-    (when codes
-      (setf result
-            (format nil "~C[~{~A~^;~}m~A~A"
-                   #\Escape
-                   (nreverse codes)
-                   text
-                   (ansi-reset))))
-
+The previous implementation applied ANSI escape codes before padding,
+width/alignment and height adjustments. That meant only the glyphs in
+TEXT were styled, while layout spaces added later (for padding or centering)
+were left unstyled — so background colors didn’t fill boxes. We instead
+compute the final block first, then wrap it with ANSI codes."
+  (let ((result text))
     ;; Handle inline mode - force single line, ignore margins/padding/borders
     (when (style-inline style)
       (setf result (car (split-string-by-newline result))))
 
-    ;; Apply max-width/max-height before other sizing
-    (when (style-max-width style)
-      (setf result (truncate-to-width result (style-max-width style))))
-    (when (style-max-height style)
-      (setf result (truncate-to-height result (style-max-height style))))
+    ;; Pre-wrap: if a width is set, wrap text to (width - horizontal padding)
+    (when (and (not (style-inline style)) (style-width style))
+      (let ((wrap-at (- (style-width style)
+                        (style-padding-left style)
+                        (style-padding-right style))))
+        (when (> wrap-at 0)
+          (setf result (wrap-text result wrap-at :break-words nil :normalize-spaces t)))))
 
     ;; Apply padding (unless inline)
     (when (and (not (style-inline style))
@@ -361,7 +385,46 @@
     (when (style-height style)
       (setf result (apply-min-height result (style-height style))))
 
-    ;; Apply margins (unless inline)
+    ;; Defensive clamp: ensure no line exceeds the requested width even if
+    ;; upstream alignment/padding introduced extra spaces due to ANSI quirks.
+    (when (style-width style)
+      (setf result (truncate-to-width result (style-width style))))
+
+    ;; If underline is requested, apply it only to non-space text, not padding.
+    (when (style-underline style)
+      (setf result (apply-underline-to-text-only result)))
+
+    ;; Finally, collect and apply ANSI codes PER LINE so they wrap each line's
+    ;; content (padding/width/height), but NOT the margins. This ensures that
+    ;; when margins are applied later, they appear as unstyled spaces because
+    ;; each line ends with a reset code before its margin.
+    ;; Note: underline is handled above per-text; do not include it here.
+    (let ((codes '()))
+      (when (style-bold style) (push *bold* codes))
+      (when (style-faint style) (push *dim* codes))
+      (when (style-italic style) (push *italic* codes))
+      (when (style-blink style) (push *blink* codes))
+      (when (style-reverse style) (push *reverse* codes))
+      (when (style-strikethrough style) (push *strikethrough* codes))
+      ;; Resolve adaptive colors
+      (when (style-foreground style)
+        (push (as-foreground-code (resolve-adaptive-color (style-foreground style))) codes))
+      (when (style-background style)
+        (push (as-background-code (resolve-adaptive-color (style-background style))) codes))
+
+      (setf result (if codes
+                       (let ((seq (format nil "~C[~{~A~^;~}m" #\Escape (nreverse codes)))
+                             (rst (ansi-reset))
+                             (lines (split-string-by-newline result)))
+                         ;; Apply codes per-line: ESC[codes]<line>ESC[0m
+                         (format nil "~{~A~^~%~}"
+                                 (mapcar (lambda (line)
+                                           (format nil "~A~A~A" seq line rst))
+                                         lines)))
+                       result)))
+
+    ;; Apply margins last (and unstyled) so they appear as plain spacing
+    ;; around the styled content.
     (when (and (not (style-inline style))
                (or (> (style-margin-left style) 0)
                    (> (style-margin-right style) 0)
@@ -369,10 +432,40 @@
                    (> (style-margin-bottom style) 0)))
       (setf result (apply-margin result style)))
 
+    ;; Apply MaxWidth/MaxHeight at the very end (ANSI-aware)
+    (when (style-max-width style)
+      (setf result (truncate-to-width result (style-max-width style))))
+    (when (style-max-height style)
+      (setf result (truncate-to-height result (style-max-height style))))
+
     result))
 
+;; Insert underline on/off only around non-space text on each line.
+(defun apply-underline-to-text-only (text)
+  (let ((on (ansi-color *underline*))
+        (off (ansi-color "24")))
+    (format nil "~{~A~^~%~}"
+            (mapcar (lambda (line)
+                      (let* ((len (length line))
+                             (start (position-if (lambda (c) (not (char= c #\Space))) line))
+                             ;; Find last non-space character index
+                             (last-ns (when start (position-if (lambda (c) (not (char= c #\Space))) line :from-end t)))
+                             (end (when last-ns (1+ last-ns))))
+                        (if (and start end (> end start))
+                            (concatenate 'string
+                                         (subseq line 0 start)
+                                         on
+                                         (subseq line start end)
+                                         off
+                                         (subseq line end))
+                            line)))
+                    (split-string-by-newline text)))))
+
 (defun apply-padding (text style)
-  "Apply padding to text."
+  "Apply padding to TEXT. Adds left/right spaces and blank lines for top/bottom.
+
+This version preserves each line's natural width (no global expansion),
+which avoids runaway trailing spaces when composing large documents."
   (let* ((lines (split-string-by-newline text))
          (pad-left (make-string (style-padding-left style) :initial-element #\Space))
          (pad-right (make-string (style-padding-right style) :initial-element #\Space))
@@ -380,42 +473,51 @@
                                  (format nil "~A~A~A" pad-left line pad-right))
                               lines)))
     (with-output-to-string (s)
-      ;; Top padding
-      (dotimes (i (style-padding-top style))
-        (format s "~%"))
+      ;; Top padding: blank lines only
+      (dotimes (i (style-padding-top style)) (format s "~%"))
       ;; Content
       (format s "~{~A~^~%~}" padded-lines)
-      ;; Bottom padding
-      (dotimes (i (style-padding-bottom style))
-        (format s "~%")))))
+      ;; Bottom padding: blank lines only
+      (dotimes (i (style-padding-bottom style)) (format s "~%")))))
 
 (defun apply-width-align (text style)
-  "Apply width and alignment to text."
+  "Apply width and alignment to text. If content exceeds width, truncate."
   (let* ((lines (split-string-by-newline text))
          (width (style-width style))
          (align (style-align style)))
     (format nil "~{~A~^~%~}"
             (mapcar (lambda (line)
-                     (let* ((visible-len (visible-length line))
-                            (padding (max 0 (- width visible-len))))
-                       (case align
-                         (:left (format nil "~A~A" line (make-string padding :initial-element #\Space)))
-                         (:right (format nil "~A~A" (make-string padding :initial-element #\Space) line))
-                         (:center (let* ((left-pad (floor padding 2))
-                                        (right-pad (- padding left-pad)))
-                                   (format nil "~A~A~A"
-                                          (make-string left-pad :initial-element #\Space)
-                                          line
-                                          (make-string right-pad :initial-element #\Space))))
-                         (t line))))
-                   lines))))
+                      (let* ((visible-len (visible-length line)))
+                        (cond
+                          ((or (null width) (<= width 0)) "")
+                          ((> visible-len width)
+                           (truncate-text line width :ellipsis ""))
+                          (t
+                           (let* ((padding (max 0 (- width visible-len)))
+                                  (aligned (case align
+                                             (:left (format nil "~A~A" line (make-string padding :initial-element #\Space)))
+                                             (:right (format nil "~A~A" (make-string padding :initial-element #\Space) line))
+                                             (:center (let* ((left-pad (floor padding 2))
+                                                             (right-pad (- padding left-pad)))
+                                                        (format nil "~A~A~A"
+                                                                (make-string left-pad :initial-element #\Space)
+                                                                line
+                                                                (make-string right-pad :initial-element #\Space))))
+                                             (t line))))
+                             ;; Final guard: never exceed width, even if alignment produced
+                             ;; extra spaces due to ANSI/measurement quirks.
+                             (if (> (visible-length aligned) width)
+                                 (truncate-text aligned width :ellipsis "")
+                                 aligned))))))
+                    lines))))
 
 (defun apply-margin (text style)
   "Apply margins to text."
   (let* ((lines (split-string-by-newline text))
          (margin-left (make-string (style-margin-left style) :initial-element #\Space))
+         (margin-right (make-string (style-margin-right style) :initial-element #\Space))
          (margined-lines (mapcar (lambda (line)
-                                   (format nil "~A~A" margin-left line))
+                                   (format nil "~A~A~A" margin-left line margin-right))
                                 lines)))
     (with-output-to-string (s)
       ;; Top margin
@@ -443,16 +545,20 @@
         (format nil "~{~A~^~%~}" (subseq lines 0 max-height)))))
 
 (defun apply-min-height (text min-height)
-  "Ensure text has at least min-height lines by adding blank lines."
-  (let ((lines (split-string-by-newline text))
-        (current-height (height text)))
+  "Ensure TEXT has at least MIN-HEIGHT lines by adding space-filled lines.
+
+Lines added are padded to the current block width so backgrounds render."
+  (let* ((lines (split-string-by-newline text))
+         (current-height (length lines)))
     (if (>= current-height min-height)
         text
-        (let ((needed (- min-height current-height)))
+        (let* ((maxw (if lines (apply #'max (mapcar #'visible-length lines)) 0))
+               (needed (- min-height current-height))
+               (blank (make-string maxw :initial-element #\Space)))
           (with-output-to-string (s)
             (format s "~{~A~^~%~}" lines)
             (dotimes (i needed)
-              (format s "~%")))))))
+              (format s "~%~A" blank)))))))
 
 ;;; Utility functions
 

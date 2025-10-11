@@ -104,45 +104,52 @@
 (defun render-border (text border &key
                              (top t) (bottom t) (left t) (right t)
                              fg-color bg-color)
-  "Render text with a border around it."
+  "Render text with a border around it.
+   Colors are applied per-border-character to avoid being cleared by content resets."
   (let* ((lines (split-string-by-newline text))
          (max-width (apply #'max (mapcar #'visible-length lines)))
-         (result nil))
+         (result nil)
+         ;; Helper to color a border character if color is specified
+         (color-border (lambda (str)
+                        (if (or fg-color bg-color)
+                            (colored str :fg fg-color :bg bg-color)
+                            str))))
 
     ;; Top border
     (when top
-      (push (format nil "~A~A~A"
-                   (if left (border-top-left border) "")
-                   (make-string max-width :initial-element
-                               (char (border-top border) 0))
-                   (if right (border-top-right border) ""))
-            result))
+      (let ((top-line (format nil "~A~A~A"
+                             (if left (border-top-left border) "")
+                             (make-string max-width :initial-element
+                                         (char (border-top border) 0))
+                             (if right (border-top-right border) ""))))
+        (push (funcall color-border top-line) result)))
 
     ;; Content with left/right borders
     (dolist (line lines)
       (let* ((visible-len (visible-length line))
-             (padding (- max-width visible-len)))
+             (padding (- max-width visible-len))
+             ;; Color the border characters and padding separately from content
+             (left-part (if left (funcall color-border (border-left border)) ""))
+             (pad-part (funcall color-border (make-string padding :initial-element #\Space)))
+             (right-part (if right (funcall color-border (border-right border)) "")))
         (push (format nil "~A~A~A~A"
-                     (if left (border-left border) "")
+                     left-part
                      line
-                     (make-string padding :initial-element #\Space)
-                     (if right (border-right border) ""))
+                     pad-part
+                     right-part)
               result)))
 
     ;; Bottom border
     (when bottom
-      (push (format nil "~A~A~A"
-                   (if left (border-bottom-left border) "")
-                   (make-string max-width :initial-element
-                               (char (border-bottom border) 0))
-                   (if right (border-bottom-right border) ""))
-            result))
+      (let ((bottom-line (format nil "~A~A~A"
+                                (if left (border-bottom-left border) "")
+                                (make-string max-width :initial-element
+                                            (char (border-bottom border) 0))
+                                (if right (border-bottom-right border) ""))))
+        (push (funcall color-border bottom-line) result)))
 
-    ;; Apply colors if specified
-    (let ((output (format nil "~{~A~^~%~}" (nreverse result))))
-      (if (or fg-color bg-color)
-          (colored output :fg fg-color :bg bg-color)
-          output))))
+    ;; Return the formatted result
+    (format nil "~{~A~^~%~}" (nreverse result))))
 
 (defun make-border (&key top bottom left right
                         top-left top-right

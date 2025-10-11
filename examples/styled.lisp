@@ -12,6 +12,9 @@
 
 (in-package #:tuition-example-styled)
 
+(eval-when (:load-toplevel :execute)
+  (asdf:load-system :tuition))
+
 ;;; Model
 (defclass styled-model ()
   ((quitting :initform nil :accessor model-quitting)))
@@ -83,5 +86,5 @@
   (let ((program (tui:make-program (make-instance 'styled-model))))
     (tui:run program)))
 
-#+nil
-(main)
+(eval-when (:load-toplevel :execute)
+  (main))

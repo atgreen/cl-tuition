@@ -8,7 +8,7 @@
 
 (in-package #:tuition)
 
-(defparameter *input-log-enabled* t
+(defparameter *input-log-enabled* nil
   "When true, key parsing writes debug logs to *input-log-file*.")
 
 (defparameter *input-log-file* "/tmp/tuition-input-debug.log"

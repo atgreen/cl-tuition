@@ -1,17 +1,30 @@
 # Tuition
 
-![Tuition Showcase](./showcase.png)
+Hey everone... this is a work in progress! Don't expect much right now...
 
-Tuition is a Common Lisp library for building rich, responsive Terminal User Interfaces (TUIs). It blends the simplicity of The Elm Architecture (TEA) with the power of CLOS so you can model state clearly, react to events via generic methods, and render your UI as pure strings.
+<p align="center">
+  <img src="./showcase.png" alt="Tuition showcase" width="720">
+  <br>
+  <a href="https://img.shields.io/badge/lang-Common%20Lisp-8c3ffc"><img src="https://img.shields.io/badge/lang-Common%20Lisp-8c3ffc" alt="Common Lisp"></a>
+  <a href="#license"><img src="https://img.shields.io/badge/license-MIT-brightgreen.svg" alt="MIT License"></a>
+  <br>
+  <em>The fun, functional, and stateful way to build terminal apps in Common Lisp.</em>
+  <br>
+  <sub>Based on The Elm Architecture (TEA). Built with CLOS.</sub>
+</p>
 
-- Model: a CLOS object representing your application state
-- Messages: CLOS classes describing events (keys, mouse, timers, custom)
-- Update: generic methods that transform the model in response to messages
-- View: a pure function that renders your model to a string
+Tuition is a Common Lisp library for building rich, responsive terminal user interfaces (TUIs). It blends the simplicity of TEA with the power of CLOS so you can model state clearly, react to events via generic methods, and render your UI as pure strings.
 
-Tuition handles terminal concerns for you (raw mode, alternate screen, input decoding, cursor control) so you can focus on application logic.
+- Model — a CLOS object representing your application state
+- Messages — CLOS classes describing events (keys, mouse, timers, custom)
+- Update — generic methods that transform the model in response to messages
+- View — a pure function that renders your model to a string
 
-## Concepts Overview
+Tuition handles terminal concerns for you (raw mode, alternate screen, input decoding, cursor control) so you can stay focused on your application logic.
+
+---
+
+## Concepts
 
 - Model-View-Update: Keep state in a CLOS object, react to messages, and render a pure string view.
 - Messages: Typed events (keys, mouse, timers, custom) dispatched via generic methods for clarity and extensibility.
@@ -34,28 +47,47 @@ Tuition handles terminal concerns for you (raw mode, alternate screen, input dec
 - Built-in components: spinner, progress bar, list, table, text input
 - Zones for advanced mouse interactions (define and query named regions)
 
-## Installation
+### Gallery
 
-Tuition is an ASDF system. You can install it directly from this repo or add it to your local registry. The simplest paths are `ocicl` (a small, local-first Common Lisp package manager) or plain ASDF.
+<p>
+  <img src="assets/gifs/spinner.gif" width="400" alt="Spinner">
+  <img src="assets/gifs/progress.gif" width="800" alt="Progress">
+  <br>
+  <sub>More GIFs/screenshots coming from the examples directory.</sub>
+</p>
 
-Requirements:
-- A Common Lisp implementation (SBCL recommended)
-- ASDF available in your environment (bundled with SBCL)
+#### Components (previews)
 
-Using ocicl (local install from the repo root):
+<p>
+  <strong>Spinner</strong><br>
+  <img src="assets/gifs/spinner.gif" width="400" alt="Spinner">
+</p>
 
-```bash
-cd /path/to/tuition
-ocicl install .
-```
+<p>
+  <strong>Text Input</strong><br>
+  <img src="assets/gifs/textinput.gif" width="400" alt="Text input">
+</p>
 
-Or via ASDF (ensure the repo is on your ASDF source registry, e.g., by cloning into `~/common-lisp/` or configuring `ASDF_SOURCE_REGISTRY`):
+<p>
+  <strong>Progress</strong><br>
+  <img src="assets/gifs/progress.gif" width="800" alt="Progress">
+</p>
 
-```lisp
-(asdf:load-system :tuition)
-```
+<p>
+  <strong>Table</strong><br>
+  <img src="assets/gifs/table.gif" width="400" alt="Table">
+</p>
 
-## Version Information
+<p>
+  <strong>Markdown</strong><br>
+  <img src="assets/gifs/markdown.gif" width="600" alt="Markdown">
+</p>
+
+> Note: these images are generated via [VHS] tapes under `assets/vhs/`. Run `vhs assets/vhs/<name>.tape` to produce GIFs in `assets/gifs/`.
+
+[VHS]: https://github.com/charmbracelet/vhs
+
+## Version
 
 Tuition uses git-aware version strings. Access the current version:
 
@@ -65,7 +97,7 @@ tui:+version+  ; => "0.1.0" or "0.1.0-g1a2b3c4" or "v1.0.0+dirty"
 
 ## Quick Start
 
-### Hello World
+### Hello, world
 
 ```lisp
 (defpackage #:hello-world
@@ -89,7 +121,7 @@ tui:+version+  ; => "0.1.0" or "0.1.0-g1a2b3c4" or "v1.0.0+dirty"
   (tui:run (tui:make-program (make-instance 'hello-model))))
 ```
 
-### Interactive Counter (CLOS-first style)
+### Interactive counter
 
 ```lisp
 (defpackage #:counter-demo
@@ -122,6 +154,20 @@ tui:+version+  ; => "0.1.0" or "0.1.0-g1a2b3c4" or "v1.0.0+dirty"
 (defun main ()
   (tui:run (tui:make-program (make-instance 'counter-model))))
 ```
+
+---
+
+## Tutorial
+
+Bubble Tea-style programs are comprised of a model that describes your application state and three simple generic functions:
+
+- `tui:init` — returns an initial command (or NIL)
+- `tui:update` (or `tui:update-message`) — transforms state in response to messages
+- `tui:view` — renders your model to a string
+
+See the Quick Start above for a minimal example and the examples/ directory for complete, runnable programs.
+
+---
 
 ## Core Concepts
 
@@ -203,7 +249,7 @@ Commands are functions that return messages asynchronously.
   :mouse :cell-motion)     ; :cell-motion | :all-motion | NIL
 ```
 
-## Terminal Lifecycle
+## Terminal lifecycle
 
 Use `tui:with-raw-terminal` when you want terminal control outside the main program loop. It ensures proper cleanup and offers restarts to recover from setup issues.
 
@@ -220,9 +266,9 @@ Restarts during setup:
 - `RETRY` — retry entering raw mode
 - `ABORT` — abort setup and return
 
-## Styling and Layout
+## Styling and layout
 
-### Text Styling
+### Text styling
 
 Use text styling helpers to apply ANSI attributes (bold, italic, underline) and colors in a composable way. Styles can be nested and combined, or prebuilt via a style object and applied to arbitrary strings. This keeps rendering pure while letting you centralize theme choices.
 
@@ -240,7 +286,7 @@ Use text styling helpers to apply ANSI attributes (bold, italic, underline) and 
   "Styled text")
 ```
 
-### Layout and Placement
+### Layout and placement
 
 Layout helpers let you arrange blocks of text without calculating offsets by hand. Join content horizontally or vertically with alignment, then optionally position the result within a given width/height or the terminal’s current size. This encourages building UIs from simple, pure string blocks.
 
@@ -258,7 +304,7 @@ Borders provide quick framing for panels, tables, and dialogs. Pick from several
 (tui:render-border (tui:make-border :style tui:*border-rounded*) "Panel")
 ```
 
-## Reflow Utilities
+## Reflow utilities
 
 Reflow functions help you shape text to fit the terminal: wrap long paragraphs, truncate with ellipses, or indent multi‑line blocks. They are designed to work well with styled strings so you can format first and style later (or vice‑versa) without miscounting visible width.
 
@@ -268,7 +314,7 @@ Reflow functions help you shape text to fit the terminal: wrap long paragraphs, 
 (tui:indent-lines "Line A\nLine B" 4)
 ```
 
-## Input and Mouse
+## Input and mouse
 
 Keyboard events arrive as `tui:key-msg` values with helpers to inspect the key and modifier state. Mouse input (when enabled) surfaces cell‑based coordinates, button, and action so you can implement hover, drag, or click interactions in a pure update loop.
 
@@ -321,7 +367,7 @@ Use components when you want common interactions without re‑implementing state
   (tuition.components.textinput:make-textinput :placeholder "Type here"))
 ```
 
-## Zones (Mouse Areas)
+## Zones (mouse areas)
 
 Zones let you attribute portions of the rendered screen to symbolic identifiers and query hover/clicks reliably.
 
@@ -350,7 +396,7 @@ The `examples/` directory contains runnable demos. Highlights:
 - `window-size.lisp` — terminal geometry
 - `http.lisp` — async command example
 
-Run an example:
+Run an example
 
 ```bash
 sbcl --eval "(asdf:load-system :tuition)" \
@@ -358,7 +404,18 @@ sbcl --eval "(asdf:load-system :tuition)" \
      --eval "(tuition-example-simple:main)"
 ```
 
-## Error Handling
+By the way
+- See the components in `src/components/` for reusable widgets akin to Charmbracelet’s [Bubbles].
+- Styling and layout utilities are inspired by [Lip Gloss].
+- Markdown rendering is inspired by [Glamour].
+- Spring-based animation draws from [Harmonica].
+
+[Bubbles]: https://github.com/charmbracelet/bubbles
+[Lip Gloss]: https://github.com/charmbracelet/lipgloss
+[Glamour]: https://github.com/charmbracelet/glamour
+[Harmonica]: https://github.com/charmbracelet/harmonica
+
+## Error handling
 
 Tuition uses conditions for internal errors. You can customize reporting by rebinding `tui:*error-handler*`.
 
@@ -378,6 +435,8 @@ Tuition uses conditions for internal errors. You can customize reporting by rebi
 
 MIT License — see `LICENSE`.
 
-## Acknowledgments
+## Author and Acknowledgments
 
-Inspired by The Elm Architecture and the Charmbracelet ecosystem (Bubble Tea, Lip Gloss, Bubbles).
+Tuition was creates by Anthony Green, with the assitance of various
+LLMs, and drawing inspiraton from the Charmbracelet ecosystem (Bubble
+Tea, Lip Gloss, Bubbles, Bubblezone, Harmonica).
