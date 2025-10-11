@@ -4,45 +4,48 @@ This directory contains runnable programs that demonstrate features of the Tuiti
 
 ## Running Examples
 
-- In a Lisp REPL:
-  ```lisp
-  (asdf:load-system :tuition)
-  (load "examples/showcase.lisp")
-  (tuition-example-showcase:main)
-  ```
+Examples run automatically when loaded:
 
 - From the command line (SBCL):
   ```bash
-  sbcl --eval "(asdf:load-system :tuition)" \
-       --load examples/showcase.lisp \
-       --eval "(tuition-example-showcase:main)"
+  sbcl --load examples/showcase.lisp
   ```
 
-Replace `showcase` with any example filename and package prefix.
+- In a Lisp REPL:
+  ```lisp
+  (load "examples/showcase.lisp")
+  ```
+
+Replace `showcase` with any example filename. Each example loads the Tuition system and runs automatically via `eval-when`.
 
 ## Available Examples
 
 ### Showcase
 
-- `showcase.lisp` — A polished, animated overview of features. Press `q` to quit.
+- `showcase.lisp` — Polished, animated overview of Tuition features. Press `q` to quit.
+- `showcase-interactive.lisp` — Full interactive demo with clickable tabs, lists, and dialog buttons. Uses mouse zones and `mouse-release-event`.
+- `layout.lisp` — Comprehensive layout demonstration (ported from Lip Gloss example) showing tabs, dialogs, lists, color grids, and status bars. No interaction, just displays.
 
 ### Basics
 
-- `simple.lisp` — Minimal countdown. Press `q` or `Ctrl+C` to quit.
-- `counter.lisp` — Counter with arrow keys and `r` to reset; `q` quits.
-- `borders.lisp` — Border styles (normal, rounded, ascii). `q` quits.
-- `styled.lisp` — Colors, bold/italic, alignment, width. `q` quits.
+- `simple.lisp` — Minimal countdown timer. Press `q` or `Ctrl+C` to quit.
+- `counter.lisp` — Interactive counter with `+`/`-` or arrow keys; `r` to reset, `q` quits.
+- `borders.lisp` — Border styles (normal, rounded, thick, double, ASCII). `q` quits.
+- `styled.lisp` — Colors, bold/italic/underline, alignment, width. `q` quits.
+- `keybindings.lisp` — Keybinding system with auto-generated help text. Navigate list with arrow keys, `?`/`h` for help, `Enter` to select, `q` quits.
 
 ### Formatting & Rendering
 
-- `reflow.lisp` — Wrap, truncate, indent. Use `←/→` to adjust width; `q` quits.
-- `markdown.lisp` — Markdown rendering with multiple themes; press `1–4` to switch, `q` quits.
-- `table.lisp` — Simple table with different border styles. `q` quits.
+- `reflow.lisp` — Text wrapping, truncation, and indentation. Use `←/→` to adjust width; `q` quits.
+- `markdown.lisp` — Markdown rendering with multiple themes; press `1–4` to switch themes, `q` quits.
+- `table.lisp` — Table rendering with different border styles. `q` quits.
 
 ### Lists & Input
 
-- `list.lisp` — Scrollable selection. `↑/k` and `↓/j` navigate, `Enter` selects, `q` quits.
-- `textinput.lisp` — Basic text input. Type to edit, arrows move cursor, `Enter/Esc` quit.
+- `list.lisp` — Scrollable selection list. `↑/k` and `↓/j` navigate, `Enter` selects, `q` quits.
+- `textinput.lisp` — Basic text input field. Type to edit, arrows move cursor, `Enter`/`Esc` quit.
+- `textinput-component.lisp` — Multi-field registration form with full-featured textinput component (password masking, validation, Tab/Shift+Tab navigation, undo/redo, kill/yank). `q` or `Ctrl+C` quits.
+- `chat.lisp` — Chat interface demo using textarea and viewport components. Type messages and press `Enter` to send, `Esc` or `Ctrl+C` quits.
 
 ### Animation & Components
 
@@ -50,6 +53,7 @@ Replace `showcase` with any example filename and package prefix.
 - `spinner-component.lisp` — Spinner extracted into a reusable component. `q` or `Ctrl+C` quits.
 - `progress.lisp` — Progress bar that advances over time; any key quits.
 - `spring-animation.lisp` — Spring physics demo with smooth motion; press `SPACE` to change target, `q` to quit.
+- `eyes.lisp` — Animated blinking eyes (ported from BubbleTea). Eyes blink randomly with smooth easing animation. `Esc` or `Ctrl+C` quits.
 
 ### Timing
 
@@ -58,14 +62,17 @@ Replace `showcase` with any example filename and package prefix.
 
 ### Mouse & Zones
 
-- `mouse.lisp` — Mouse tracking demonstrating the hierarchical event system (press, release, drag, move, scroll). Create the program with `:mouse :all-motion`.
-- `zones.lisp` — Clickable regions ("zones") with button selection using `mouse-press-event`; run with `:mouse :cell-motion`.
-- `showcase-interactive.lisp` — Full interactive demo with clickable tabs, lists, and dialog buttons using mouse zones and `mouse-release-event`.
+- `mouse.lisp` — Mouse tracking demonstrating the hierarchical event system (press, release, drag, move, scroll). Uses `:mouse :all-motion`.
+- `zones.lisp` — Clickable regions ("zones") with button selection using `mouse-press-event`. Uses `:mouse :cell-motion`.
+
+### Applications
+
+- `file-manager.lisp` — Full-featured terminal file manager. Navigate with arrow keys or `j`/`k`, `Enter` to open files/directories, `Backspace` to go up, `/` to search, `h` for help, `q` quits.
 
 ### Networking & System
 
 - `http.lisp` — Async HTTP example using commands, with basic error handling.
-- `window-size.lisp` — Query current terminal size; press any key.
+- `window-size.lisp` — Query current terminal size; press any key to quit.
 
 ## Example Structure
 

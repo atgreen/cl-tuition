@@ -371,28 +371,7 @@ See `zone.lisp` for the API and the `examples/zones*` demos for usage patterns.
 
 ## Examples
 
-The `examples/` directory contains runnable demos. Highlights:
-
-- `simple.lisp` — countdown timer using a custom tick message
-- `counter.lisp` — interactive counter
-- `spinner.lisp` — animated spinner
-- `progress.lisp` — progress bar
-- `textinput.lisp` — text input
-- `list.lisp` — scrollable selection list
-- `table.lisp` — table rendering
-- `borders.lisp`, `styled.lisp` — styling and borders
-- `reflow.lisp` — wrap, truncate, indent demo
-- `mouse.lisp` — mouse input handling
-- `window-size.lisp` — terminal geometry
-- `http.lisp` — async command example
-
-Run an example
-
-```bash
-sbcl --eval "(asdf:load-system :tuition)" \
-     --load examples/simple.lisp \
-     --eval "(tuition-example-simple:main)"
-```
+The `examples/` directory contains runnable demos showcasing Tuition features. See `examples/README.md` for a complete list and descriptions of all available examples.
 
 By the way
 - See the components in `src/components/` for reusable widgets akin to Charmbracelet’s [Bubbles].
