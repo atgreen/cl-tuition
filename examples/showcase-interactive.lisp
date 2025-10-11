@@ -337,10 +337,9 @@
 
   (values model nil))
 
-(defmethod tui:update-message ((model showcase-model) (msg tui:mouse-msg))
+(defmethod tui:update-message ((model showcase-model) (msg tui:mouse-release-event))
   ;; Handle mouse clicks for all interactive elements
-  (when (and (eq (tui:mouse-msg-action msg) :release)
-             (eq (tui:mouse-msg-button msg) :left))
+  (when (eq (tui:mouse-event-button msg) :left)
 
     ;; Handle tabs
     (let ((tabs (model-tabs model)))

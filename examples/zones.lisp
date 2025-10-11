@@ -37,9 +37,8 @@
       ((and (tui:key-msg-ctrl msg) (characterp key) (char= key #\c)) (values model (tui:quit-cmd)))
       (t (values model nil)))))
 
-(defmethod tui:update-message ((model zones-model) (msg tui:mouse-msg))
-  (when (and (eql (tui:mouse-msg-action msg) :press)
-             (eql (tui:mouse-msg-button msg) :left))
+(defmethod tui:update-message ((model zones-model) (msg tui:mouse-press-event))
+  (when (eql (tui:mouse-event-button msg) :left)
     ;; Check each button zone
     (let ((prefix (model-zone-prefix model)))
       (loop for button in (model-buttons model)

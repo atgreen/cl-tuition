@@ -50,50 +50,17 @@ Tuition handles terminal concerns for you (raw mode, alternate screen, input dec
 ### Gallery
 
 <p>
+  <img src="assets/gifs/file-manager.gif" alt="File Manager">
+  <p>
+  <br>
   <img src="assets/gifs/spinner.gif" width="400" alt="Spinner">
-  <img src="assets/gifs/progress.gif" width="800" alt="Progress">
+  <p>
+  <br>
+  <img src="assets/gifs/spinner.gif" width="400" alt="Spinner">
+  <p>
   <br>
   <sub>More GIFs/screenshots coming from the examples directory.</sub>
 </p>
-
-#### Components (previews)
-
-<p>
-  <strong>Spinner</strong><br>
-  <img src="assets/gifs/spinner.gif" width="400" alt="Spinner">
-</p>
-
-<p>
-  <strong>Text Input</strong><br>
-  <img src="assets/gifs/textinput.gif" width="400" alt="Text input">
-</p>
-
-<p>
-  <strong>Progress</strong><br>
-  <img src="assets/gifs/progress.gif" width="800" alt="Progress">
-</p>
-
-<p>
-  <strong>Table</strong><br>
-  <img src="assets/gifs/table.gif" width="400" alt="Table">
-</p>
-
-<p>
-  <strong>Markdown</strong><br>
-  <img src="assets/gifs/markdown.gif" width="600" alt="Markdown">
-</p>
-
-> Note: these images are generated via [VHS] tapes under `assets/vhs/`. Run `vhs assets/vhs/<name>.tape` to produce GIFs in `assets/gifs/`.
-
-[VHS]: https://github.com/charmbracelet/vhs
-
-## Version
-
-Tuition uses git-aware version strings. Access the current version:
-
-```lisp
-tui:+version+  ; => "0.1.0" or "0.1.0-g1a2b3c4" or "v1.0.0+dirty"
-```
 
 ## Quick Start
 

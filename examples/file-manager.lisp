@@ -24,7 +24,7 @@
 
 ;;; Model
 (defclass file-manager-model ()
-  ((current-dir :initform (namestring (user-homedir-pathname))
+  ((current-dir :initform "."
                 :accessor current-dir)
    (items :initform '() :accessor items)
    (selected :initform 0 :accessor selected)

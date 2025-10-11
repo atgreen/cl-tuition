@@ -32,7 +32,7 @@
       ((eq key :escape) (values model (tui:quit-cmd)))
       (t (values model nil)))))
 
-(defmethod tui:update-message ((model mouse-model) (msg tui:mouse-msg))
+(defmethod tui:update-message ((model mouse-model) (msg tui:mouse-event))
   (setf (mouse-last-event model) msg)
   (values model nil))
 
@@ -40,14 +40,29 @@
 (defun format-mouse-event (msg)
   "Format a mouse event as a string"
   (if msg
-      (format nil "(X: ~D, Y: ~D) ~A ~A~A~A~A"
-              (tui:mouse-msg-x msg)
-              (tui:mouse-msg-y msg)
-              (tui:mouse-msg-action msg)
-              (or (tui:mouse-msg-button msg) "")
-              (if (tui:mouse-msg-shift msg) " +shift" "")
-              (if (tui:mouse-msg-alt msg) " +alt" "")
-              (if (tui:mouse-msg-ctrl msg) " +ctrl" ""))
+      (let ((x (tui:mouse-event-x msg))
+            (y (tui:mouse-event-y msg))
+            (shift (tui:mouse-event-shift msg))
+            (alt (tui:mouse-event-alt msg))
+            (ctrl (tui:mouse-event-ctrl msg))
+            (event-type (cond
+                          ((tui:mouse-press-event-p msg) "press")
+                          ((tui:mouse-release-event-p msg) "release")
+                          ((tui:mouse-drag-event-p msg) "drag")
+                          ((typep msg 'tui:mouse-move-event) "move")
+                          ((tui:mouse-scroll-event-p msg) "scroll")
+                          (t "unknown")))
+            (button (when (typep msg 'tui:mouse-button-event)
+                      (tui:mouse-event-button msg)))
+            (direction (when (tui:mouse-scroll-event-p msg)
+                         (tui:mouse-scroll-direction msg))))
+        (format nil "(X: ~D, Y: ~D) ~A~A~A~A~A~A"
+                x y event-type
+                (if button (format nil " ~A" button) "")
+                (if direction (format nil " ~A" direction) "")
+                (if shift " +shift" "")
+                (if alt " +alt" "")
+                (if ctrl " +ctrl" "")))
       "No mouse events yet"))
 
 ;;; View
