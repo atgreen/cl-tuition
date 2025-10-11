@@ -1,7 +1,5 @@
 # Tuition
 
-Hey everone... this is a work in progress! Don't expect much right now...
-
 <p align="center">
   <img src="./showcase.png" alt="Tuition showcase" width="720">
   <br>
