@@ -65,6 +65,42 @@ DOCUMENTATION sets the class docstring (defaults to a short description)."
   ((width :initarg :width :reader window-size-msg-width)
    (height :initarg :height :reader window-size-msg-height)))
 
+;;; Mouse event hierarchy (inspired by com.dieggsy.tui)
+;; Base mouse event with position and modifiers
+(defclass mouse-event (message)
+  ((x :initarg :x :reader mouse-event-x :documentation "X coordinate (column, 1-based)")
+   (y :initarg :y :reader mouse-event-y :documentation "Y coordinate (row, 1-based)")
+   (shift :initarg :shift :initform nil :reader mouse-event-shift)
+   (alt :initarg :alt :initform nil :reader mouse-event-alt)
+   (ctrl :initarg :ctrl :initform nil :reader mouse-event-ctrl))
+  (:documentation "Base class for all mouse events."))
+
+;; Button events (press/release/drag)
+(defclass mouse-button-event (mouse-event)
+  ((button :initarg :button :reader mouse-event-button
+           :documentation "Button: :left, :middle, or :right"))
+  (:documentation "Mouse event with a button."))
+
+(defclass mouse-press-event (mouse-button-event) ()
+  (:documentation "Mouse button pressed."))
+
+(defclass mouse-release-event (mouse-button-event) ()
+  (:documentation "Mouse button released."))
+
+(defclass mouse-drag-event (mouse-button-event) ()
+  (:documentation "Mouse moved with button held."))
+
+;; Movement without button
+(defclass mouse-move-event (mouse-event) ()
+  (:documentation "Mouse moved without button pressed."))
+
+;; Scroll events
+(defclass mouse-scroll-event (mouse-event)
+  ((direction :initarg :direction :reader mouse-scroll-direction
+              :documentation "Scroll direction: :up or :down"))
+  (:documentation "Mouse scroll wheel event."))
+
+;; Legacy mouse-msg for backward compatibility
 (defmessage mouse-msg
   ((x :initarg :x :reader mouse-msg-x)
    (y :initarg :y :reader mouse-msg-y)
@@ -72,7 +108,8 @@ DOCUMENTATION sets the class docstring (defaults to a short description)."
    (shift :initarg :shift :initform nil :reader mouse-msg-shift)
    (alt :initarg :alt :initform nil :reader mouse-msg-alt)
    (ctrl :initarg :ctrl :initform nil :reader mouse-msg-ctrl)
-   (action :initarg :action :reader mouse-msg-action)))
+   (action :initarg :action :reader mouse-msg-action))
+  :documentation "Legacy mouse event (use mouse-event subclasses instead).")
 
 ;; Tick message for timer/animation updates
 (defmessage tick-msg
@@ -81,6 +118,13 @@ DOCUMENTATION sets the class docstring (defaults to a short description)."
 ;; Suspend/resume messages
 (defmessage suspend-msg () :print-name suspend)
 (defmessage resume-msg () :print-name resume)
+
+;;; Focus events (terminal window focus in/out)
+(defmessage focus-in-msg ()
+  :documentation "Terminal window gained focus.")
+
+(defmessage focus-out-msg ()
+  :documentation "Terminal window lost focus.")
 
 ;;; Constructors and predicates (compat names)
 (defun make-quit-msg ()
@@ -116,13 +160,60 @@ DOCUMENTATION sets the class docstring (defaults to a short description)."
   (typep obj 'window-size-msg))
 
 (defun make-mouse-msg (&key x y button shift alt ctrl action)
-  "Construct a mouse-msg with position, button, modifiers, and ACTION."
+  "Construct a mouse-msg with position, button, modifiers, and ACTION (legacy)."
   (make-instance 'mouse-msg :x x :y y :button button
                          :shift shift :alt alt :ctrl ctrl :action action))
 
 (defun mouse-msg-p (obj)
   "Return true if OBJ is a mouse-msg."
   (typep obj 'mouse-msg))
+
+;;; New mouse event constructors
+(defun make-mouse-press-event (&key x y button (shift nil) (alt nil) (ctrl nil))
+  "Construct a mouse-press-event."
+  (make-instance 'mouse-press-event :x x :y y :button button
+                 :shift shift :alt alt :ctrl ctrl))
+
+(defun make-mouse-release-event (&key x y button (shift nil) (alt nil) (ctrl nil))
+  "Construct a mouse-release-event."
+  (make-instance 'mouse-release-event :x x :y y :button button
+                 :shift shift :alt alt :ctrl ctrl))
+
+(defun make-mouse-drag-event (&key x y button (shift nil) (alt nil) (ctrl nil))
+  "Construct a mouse-drag-event."
+  (make-instance 'mouse-drag-event :x x :y y :button button
+                 :shift shift :alt alt :ctrl ctrl))
+
+(defun make-mouse-move-event (&key x y (shift nil) (alt nil) (ctrl nil))
+  "Construct a mouse-move-event."
+  (make-instance 'mouse-move-event :x x :y y
+                 :shift shift :alt alt :ctrl ctrl))
+
+(defun make-mouse-scroll-event (&key x y direction (shift nil) (alt nil) (ctrl nil))
+  "Construct a mouse-scroll-event."
+  (make-instance 'mouse-scroll-event :x x :y y :direction direction
+                 :shift shift :alt alt :ctrl ctrl))
+
+;;; Mouse event predicates
+(defun mouse-event-p (obj)
+  "Return true if OBJ is a mouse-event."
+  (typep obj 'mouse-event))
+
+(defun mouse-press-event-p (obj)
+  "Return true if OBJ is a mouse-press-event."
+  (typep obj 'mouse-press-event))
+
+(defun mouse-release-event-p (obj)
+  "Return true if OBJ is a mouse-release-event."
+  (typep obj 'mouse-release-event))
+
+(defun mouse-drag-event-p (obj)
+  "Return true if OBJ is a mouse-drag-event."
+  (typep obj 'mouse-drag-event))
+
+(defun mouse-scroll-event-p (obj)
+  "Return true if OBJ is a mouse-scroll-event."
+  (typep obj 'mouse-scroll-event))
 
 (defun make-tick-msg (&key time)
   "Construct a tick-msg with TIME (defaults to current internal time)."
@@ -147,6 +238,22 @@ DOCUMENTATION sets the class docstring (defaults to a short description)."
 (defun resume-msg-p (obj)
   "Return true if OBJ is a resume-msg."
   (typep obj 'resume-msg))
+
+(defun make-focus-in-msg ()
+  "Construct a focus-in-msg."
+  (make-instance 'focus-in-msg))
+
+(defun focus-in-msg-p (obj)
+  "Return true if OBJ is a focus-in-msg."
+  (typep obj 'focus-in-msg))
+
+(defun make-focus-out-msg ()
+  "Construct a focus-out-msg."
+  (make-instance 'focus-out-msg))
+
+(defun focus-out-msg-p (obj)
+  "Return true if OBJ is a focus-out-msg."
+  (typep obj 'focus-out-msg))
 
 ;;; Command utilities
 (defun quit-cmd ()

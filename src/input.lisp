@@ -141,6 +141,12 @@
         ((and ch (char= ch #\<))
          (parse-mouse-sequence stream))
 
+        ;; Focus events: ESC [ I (focus in), ESC [ O (focus out)
+        ((and ch (member ch '(#\I #\O)))
+         (case ch
+           (#\I (progn (%ilog "parse-csi-sequence: -> focus-in") (make-focus-in-msg)))
+           (#\O (progn (%ilog "parse-csi-sequence: -> focus-out") (make-focus-out-msg)))))
+
         ;; Navigation keys: arrows, Home, End, Backtab
         ((and ch (member ch '(#\A #\B #\C #\D #\H #\F #\Z)))
          (case ch
@@ -181,7 +187,8 @@
          (make-key-msg :key :unknown))))))
 
 (defun parse-mouse-sequence (stream)
-  "Parse SGR mouse tracking sequence: ESC [ < Cb ; Cx ; Cy (M or m)"
+  "Parse SGR mouse tracking sequence: ESC [ < Cb ; Cx ; Cy (M or m)
+   Returns new hierarchical mouse event types."
   (let ((params (make-array 3 :initial-element 0))
         (param-idx 0)
         (current-num 0))
@@ -201,8 +208,11 @@
                 (let* ((cb (aref params 0))
                        (x (1+ (aref params 1)))  ; convert to 1-based
                        (y (1+ (aref params 2)))  ; convert to 1-based
-                       (action (if (char= char #\M) :press :release))
-                       (button (case (logand cb 3)
+                       (is-press (char= char #\M))
+                       (base-button (logand cb 3))
+                       (is-motion (logbitp 5 cb))  ; Motion bit (32)
+                       (is-scroll (or (= cb 64) (= cb 65)))
+                       (button (case base-button
                                  (0 :left)
                                  (1 :middle)
                                  (2 :right)
@@ -211,8 +221,27 @@
                        (alt (logbitp 3 cb))
                        (ctrl (logbitp 4 cb)))
                   (return-from parse-mouse-sequence
-                    (make-mouse-msg :x x :y y :button button :action action
-                                   :shift shift :alt alt :ctrl ctrl))))
+                    (cond
+                      ;; Scroll events
+                      ((= cb 64) (make-mouse-scroll-event :x x :y y :direction :up
+                                                         :shift shift :alt alt :ctrl ctrl))
+                      ((= cb 65) (make-mouse-scroll-event :x x :y y :direction :down
+                                                         :shift shift :alt alt :ctrl ctrl))
+                      ;; Drag events (motion with button held)
+                      ((and is-motion button)
+                       (make-mouse-drag-event :x x :y y :button button
+                                             :shift shift :alt alt :ctrl ctrl))
+                      ;; Move events (motion without button)
+                      (is-motion
+                       (make-mouse-move-event :x x :y y
+                                             :shift shift :alt alt :ctrl ctrl))
+                      ;; Press/release events
+                      (is-press
+                       (make-mouse-press-event :x x :y y :button button
+                                              :shift shift :alt alt :ctrl ctrl))
+                      (t
+                       (make-mouse-release-event :x x :y y :button button
+                                                :shift shift :alt alt :ctrl ctrl))))))
                (t (return nil))))
     ;; If we didn't parse properly, return unknown key
     (make-key-msg :key :unknown)))

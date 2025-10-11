@@ -146,14 +146,25 @@
   (format t "~C[?2004l" #\Escape)
   (force-output))
 
+(defun enable-focus-events ()
+  "Enable focus in/out event reporting."
+  (format t "~C[?1004h" #\Escape)
+  (force-output))
+
+(defun disable-focus-events ()
+  "Disable focus in/out event reporting."
+  (format t "~C[?1004l" #\Escape)
+  (force-output))
+
 ;;; Suspend/resume support
 
-(defun suspend-terminal (&key alt-screen mouse)
+(defun suspend-terminal (&key alt-screen mouse focus-events)
   "Suspend the terminal - restore original state for backgrounding.
 Returns a function to restore the TUI state."
   ;; Clean up TUI state
   (when mouse (disable-mouse))
   (disable-bracketed-paste)
+  (when focus-events (disable-focus-events))
   (when alt-screen (exit-alt-screen))
   (show-cursor)
   (exit-raw-mode)
@@ -166,6 +177,7 @@ Returns a function to restore the TUI state."
     (clear-screen)
     (when alt-screen (enter-alt-screen))
     (enable-bracketed-paste)
+    (when focus-events (enable-focus-events))
     (ecase mouse
       ((nil) nil)
       (:cell-motion (enable-mouse-cell-motion))
@@ -178,20 +190,23 @@ Returns a function to restore the TUI state."
     (funcall restore-fn)))
 
 ;;; High-level terminal lifecycle
-(defmacro with-raw-terminal ((&key alt-screen mouse) &body body)
+(defmacro with-raw-terminal ((&key alt-screen mouse (focus-events t)) &body body)
   "Execute BODY with the terminal in raw TUI mode.
 
 Args:
 - ALT-SCREEN: enter/exit alternate screen when true.
 - MOUSE: one of :cell-motion, :all-motion, or NIL.
+- FOCUS-EVENTS: enable focus in/out events (default: T).
 
 Always restores the terminal, even if BODY errors."
   (let ((alt (gensym "ALT"))
         (m (gensym "MOUSE"))
+        (foc (gensym "FOCUS"))
         (raw-ok (gensym "RAW-OK")))
     `(block with-raw-terminal
        (let ((,alt ,alt-screen)
              (,m ,mouse)
+             (,foc ,focus-events)
              (,raw-ok nil))
          (unwind-protect
               (progn
@@ -215,6 +230,7 @@ Always restores the terminal, even if BODY errors."
                   (clear-screen))
                 (when ,alt (enter-alt-screen))
                 (when ,raw-ok (enable-bracketed-paste))
+                (when ,foc (enable-focus-events))
                 (ecase ,m
                   ((nil) nil)
                   (:cell-motion (enable-mouse-cell-motion))
@@ -223,6 +239,7 @@ Always restores the terminal, even if BODY errors."
            (ignore-errors
              (when ,alt (exit-alt-screen))
              (when ,m (disable-mouse))
+             (when ,foc (disable-focus-events))
              (when ,raw-ok (disable-bracketed-paste))
               (when ,raw-ok (show-cursor))
               (when ,raw-ok (exit-raw-mode))))))))
