@@ -543,13 +543,29 @@ This is a pragmatic subset covering CJK, Hangul, Hiragana/Katakana, and fullwidt
 (defun visible-length (str)
   "Calculate visible display width of STR, excluding ANSI escapes and accounting for wide/combining chars."
   (let ((result 0)
-        (in-escape nil))
-    (loop for char across str do
-      (cond
-        ((char= char #\Escape) (setf in-escape t))
-        ((and in-escape (char= char #\m)) (setf in-escape nil))
-        ((not in-escape)
-         (incf result (%char-display-width char)))))
+        (i 0)
+        (len (length str)))
+    (loop while (< i len) do
+      (let ((char (char str i)))
+        (cond
+          ;; Start of ESC sequence
+          ((char= char #\Escape)
+           ;; Skip entire CSI sequence: ESC [ ... <final-byte>
+           ;; Final byte is in range 0x40-0x7E (includes both 'm' and 'z')
+           (incf i)  ; skip ESC
+           (when (and (< i len) (char= (char str i) #\[))
+             (incf i)  ; skip [
+             ;; Skip parameter bytes and intermediate bytes until final byte
+             (loop while (< i len) do
+               (let ((code (char-code (char str i))))
+                 (incf i)
+                 ;; Final byte range: 0x40-0x7E (@A-Z[\]^_`a-z{|}~)
+                 (when (and (>= code #x40) (<= code #x7E))
+                   (return))))))
+          ;; Regular character - count its display width
+          (t
+           (incf result (%char-display-width char))
+           (incf i)))))
     result))
 
 ;;; Bidi helpers
