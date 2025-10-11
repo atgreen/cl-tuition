@@ -283,9 +283,9 @@ Reflow functions help you shape text to fit the terminal: wrap long paragraphs, 
 
 ## Input and mouse
 
-Keyboard events arrive as `tui:key-msg` values with helpers to inspect the key and modifier state. Mouse input (when enabled) surfaces cell‑based coordinates, button, and action so you can implement hover, drag, or click interactions in a pure update loop.
+Keyboard events arrive as `tui:key-msg` values with helpers to inspect the key and modifier state. Mouse input (when enabled) provides cell-based coordinates, button information, and a hierarchical event system for press, release, drag, move, and scroll events.
 
-Enable mouse reporting via `:mouse` in `tui:make-program` (see Program Options) and specialize `tui:update-message` on the corresponding message types.
+Enable mouse reporting via `:mouse` in `tui:make-program` (see Program Options) and specialize `tui:update-message` on the specific mouse event types.
 
 ```lisp
 ;; Key message helpers
@@ -294,12 +294,35 @@ Enable mouse reporting via `:mouse` in `tui:make-program` (see Program Options) 
 (tui:key-msg-ctrl msg)
 (tui:key-msg-alt msg)
 
-;; Mouse message helpers
-(tui:mouse-msg-p msg)
-(tui:mouse-msg-x msg)
-(tui:mouse-msg-y msg)
-(tui:mouse-msg-button msg)  ; :left, :right, :middle
-(tui:mouse-msg-action msg)  ; :press, :release, :motion
+;; Mouse event hierarchy - specialize on specific event types
+(defmethod tui:update-message ((model my-app) (msg tui:mouse-press-event))
+  ;; Handle button press
+  (let ((x (tui:mouse-event-x msg))
+        (y (tui:mouse-event-y msg))
+        (button (tui:mouse-event-button msg)))  ; :left, :right, :middle
+    (values model nil)))
+
+(defmethod tui:update-message ((model my-app) (msg tui:mouse-release-event))
+  ;; Handle button release
+  (values model nil))
+
+(defmethod tui:update-message ((model my-app) (msg tui:mouse-drag-event))
+  ;; Handle drag (motion with button held)
+  (values model nil))
+
+(defmethod tui:update-message ((model my-app) (msg tui:mouse-move-event))
+  ;; Handle move (motion without button)
+  (values model nil))
+
+(defmethod tui:update-message ((model my-app) (msg tui:mouse-scroll-event))
+  ;; Handle scroll wheel
+  (let ((direction (tui:mouse-scroll-direction msg)))  ; :up or :down
+    (values model nil)))
+
+;; All mouse events support modifier flags
+(tui:mouse-event-shift msg)
+(tui:mouse-event-alt msg)
+(tui:mouse-event-ctrl msg)
 ```
 
 ## Components

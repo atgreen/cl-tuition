@@ -58,8 +58,9 @@ Replace `showcase` with any example filename and package prefix.
 
 ### Mouse & Zones
 
-- `mouse.lisp` — Mouse tracking (position, buttons, modifiers). Create the program with `:mouse :all-motion`.
-- `zones.lisp` — Clickable regions (“zones”) with selection; run with `:mouse :cell-motion`.
+- `mouse.lisp` — Mouse tracking demonstrating the hierarchical event system (press, release, drag, move, scroll). Create the program with `:mouse :all-motion`.
+- `zones.lisp` — Clickable regions ("zones") with button selection using `mouse-press-event`; run with `:mouse :cell-motion`.
+- `showcase-interactive.lisp` — Full interactive demo with clickable tabs, lists, and dialog buttons using mouse zones and `mouse-release-event`.
 
 ### Networking & System
 
@@ -93,8 +94,8 @@ Each example follows the Elm Architecture pattern implemented by Tuition:
 
 ## Key Concepts
 
-- Messages: Structs representing events (key presses, ticks, custom data)
+- Messages: CLOS classes representing events (key presses, mouse events, ticks, custom data)
 - Commands: Functions that return messages (for async operations)
-- Model: Your application state
-- Update: Pure function: (model, message) → (new-model, command)
+- Model: Your application state (CLOS object)
+- Update: Generic methods specialized on message types: (model, message) → (new-model, command)
 - View: Pure function: model → string
