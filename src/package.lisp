@@ -65,7 +65,33 @@
    #:mouse-msg-shift
    #:mouse-msg-alt
    #:mouse-msg-ctrl
-    #:make-mouse-msg
+   #:make-mouse-msg
+
+   ;; New mouse event hierarchy
+   #:mouse-event
+   #:mouse-event-p
+   #:mouse-event-x
+   #:mouse-event-y
+   #:mouse-event-button
+   #:mouse-event-shift
+   #:mouse-event-alt
+   #:mouse-event-ctrl
+   #:mouse-button-event
+   #:mouse-press-event
+   #:mouse-press-event-p
+   #:make-mouse-press-event
+   #:mouse-release-event
+   #:mouse-release-event-p
+   #:make-mouse-release-event
+   #:mouse-drag-event
+   #:mouse-drag-event-p
+   #:make-mouse-drag-event
+   #:mouse-move-event
+   #:make-mouse-move-event
+   #:mouse-scroll-event
+   #:mouse-scroll-event-p
+   #:mouse-scroll-direction
+   #:make-mouse-scroll-event
    #:tick-msg
    #:tick-msg-p
    #:tick-msg-time
