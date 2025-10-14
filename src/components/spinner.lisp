@@ -33,6 +33,10 @@
    #:spinner-init
    #:spinner-update
    #:spinner-view
+
+   ;; Messages
+   #:spinner-tick-msg
+   #:make-spinner-tick-msg
    #:spinner-tick-msg-p))
 
 (in-package #:tuition.components.spinner)
@@ -91,6 +95,10 @@
 (tuition:defmessage spinner-tick-msg
   ((id :initarg :id :reader spinner-tick-msg-id))
   :print-name spinner-tick)
+
+(defun make-spinner-tick-msg (&key id)
+  "Construct a spinner-tick-msg with the given ID."
+  (make-instance 'spinner-tick-msg :id id))
 
 (defun spinner-tick-msg-p (obj)
   "Return true if OBJ is a spinner-tick-msg."
