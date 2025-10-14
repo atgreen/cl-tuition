@@ -6,15 +6,14 @@
 ;;;
 ;;;; Demonstrates using the full-featured textinput component
 
+(asdf:load-system :tuition)
+
 (defpackage #:tuition-example-textinput-component
   (:use #:cl #:tuition)
   (:documentation "Demonstrates using the full-featured textinput component.")
   (:export #:main))
 
 (in-package #:tuition-example-textinput-component)
-
-(eval-when (:load-toplevel :execute)
-  (asdf:load-system :tuition))
 
 ;;; Model
 (defclass form-model ()
@@ -42,11 +41,11 @@
          :prompt "Email: "
          :placeholder "you@example.com"
          :width 30
-         :char-limit 100
+         :char-limit 100))
          ;; Note: validator runs on every keystroke. For email validation,
          ;; it's better to validate on submit rather than during typing.
          ;; Uncomment to see validator in action (only allows digits):
-         ;; :validator (lambda (s) (every #'digit-char-p s))))
+         ;; :validator (lambda (s) (every #'digit-char-p s))
 
   (setf (form-password-input model)
         (tui.textinput:make-textinput
