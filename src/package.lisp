@@ -155,20 +155,41 @@
    #:*border-markdown*
 
    ;; Zones (mouse tracking)
-   #:zone-manager
-   #:zone-info
-   #:make-zone-manager
-   #:init-global-zone-manager
    #:*zone-manager*
-   #:zone-enabled-p
-   #:zone-set-enabled
-   #:zone-new-prefix
-   #:zone-mark
+   #:focus-in-msg-p
+   #:focus-out-msg-p
+   #:init-global-zone-manager
+   #:make-focus-in-msg
+   #:make-focus-out-msg
+   #:make-zone-manager
+   #:mouse-button-event
+   #:mouse-drag-event-p
+   #:mouse-event
+   #:mouse-event-alt
+   #:mouse-event-button
+   #:mouse-event-ctrl
+   #:mouse-event-shift
+   #:mouse-event-x
+   #:mouse-event-y
+   #:mouse-move-event
+   #:mouse-press-event
+   #:mouse-press-event-p
+   #:mouse-release-event
+   #:mouse-release-event-p
+   #:mouse-scroll-direction
+   #:mouse-scroll-event
+   #:mouse-scroll-event-p
    #:zone-clear
+   #:zone-enabled-p
    #:zone-get
-   #:zone-scan
    #:zone-in-bounds-p
+   #:zone-info
+   #:zone-manager
+   #:zone-mark
+   #:zone-new-prefix
    #:zone-pos
+   #:zone-scan
+   #:zone-set-enabled
 
    ;; Spring physics (animations)
    #:spring

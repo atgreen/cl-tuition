@@ -14,6 +14,7 @@
    ;; Model
    #:spinner
    #:make-spinner
+   #:make-spinner-tick-msg
 
    ;; Predefined spinners
    #:*spinner-line*
@@ -33,7 +34,9 @@
    #:spinner-init
    #:spinner-update
    #:spinner-view
-   #:spinner-tick-msg-p))
+   #:spinner-tick-msg-p
+   #:spinner-tick-msg
+   #:spinner-tick-msg-id))
 
 (in-package #:tuition.components.spinner)
 
