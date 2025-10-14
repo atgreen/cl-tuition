@@ -6,14 +6,13 @@
 ;;;
 ;;;; List example - demonstrates scrollable list selection
 
+(asdf:load-system :tuition)
+
 (defpackage #:tuition-example-list
   (:use #:cl #:tuition)
   (:export #:main))
 
 (in-package #:tuition-example-list)
-
-(eval-when (:load-toplevel :execute)
-  (asdf:load-system :tuition))
 
 ;;; Model
 (defclass list-model ()

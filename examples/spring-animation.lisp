@@ -6,14 +6,13 @@
 ;;;
 ;;;; Spring animation example - demonstrates smooth physics-based motion
 
+(asdf:load-system :tuition)
+
 (defpackage #:tuition-example-spring-animation
   (:use #:cl #:tuition)
   (:export #:main))
 
 (in-package #:tuition-example-spring-animation)
-
-(eval-when (:load-toplevel :execute)
-  (asdf:load-system :tuition))
 
 ;;; Tick message
 (tui:defmessage tick-msg ())

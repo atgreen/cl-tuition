@@ -6,14 +6,13 @@
 ;;;
 ;;;; Timer example - demonstrates countdown timer
 
+(asdf:load-system :tuition)
+
 (defpackage #:tuition-example-timer
   (:use #:cl #:tuition)
   (:export #:main))
 
 (in-package #:tuition-example-timer)
-
-(eval-when (:load-toplevel :execute)
-  (asdf:load-system :tuition))
 
 ;;; Messages
 (tui:defmessage tick-msg ())

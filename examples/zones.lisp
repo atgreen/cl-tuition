@@ -6,14 +6,13 @@
 ;;;
 ;;;; Zones example - demonstrates mouse zone tracking
 
+(asdf:load-system :tuition)
+
 (defpackage #:tuition-example-zones
   (:use #:cl #:tuition)
   (:export #:main))
 
 (in-package #:tuition-example-zones)
-
-(eval-when (:load-toplevel :execute)
-  (asdf:load-system :tuition))
 
 ;;; Model
 (defclass zones-model ()

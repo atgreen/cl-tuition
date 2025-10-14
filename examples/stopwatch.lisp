@@ -6,14 +6,13 @@
 ;;;
 ;;;; Stopwatch example - demonstrates start/stop/reset timing
 
+(asdf:load-system :tuition)
+
 (defpackage #:tuition-example-stopwatch
   (:use #:cl #:tuition)
   (:export #:main))
 
 (in-package #:tuition-example-stopwatch)
-
-(eval-when (:load-toplevel :execute)
-  (asdf:load-system :tuition))
 
 ;;; Tick message for updating elapsed time
 (tui:defmessage tick-msg ())

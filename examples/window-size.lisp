@@ -6,14 +6,13 @@
 ;;;
 ;;;; Window size example - demonstrates terminal size detection
 
+(asdf:load-system :tuition)
+
 (defpackage #:tuition-example-window-size
   (:use #:cl #:tuition)
   (:export #:main))
 
 (in-package #:tuition-example-window-size)
-
-(eval-when (:load-toplevel :execute)
-  (asdf:load-system :tuition))
 
 ;;; Model
 (defclass window-size-model ()

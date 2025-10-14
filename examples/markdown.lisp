@@ -6,14 +6,13 @@
 ;;;
 ;;;; Markdown rendering example - demonstrates glamour-style markdown rendering
 
+(asdf:load-system :tuition)
+
 (defpackage #:tuition-example-markdown
   (:use #:cl #:tuition)
   (:export #:main))
 
 (in-package #:tuition-example-markdown)
-
-(eval-when (:load-toplevel :execute)
-  (asdf:load-system :tuition))
 
 ;;; Sample markdown content
 

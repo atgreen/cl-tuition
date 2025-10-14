@@ -6,14 +6,13 @@
 ;;;
 ;;;; Spinner component example - demonstrates using the reusable spinner component
 
+(asdf:load-system :tuition)
+
 (defpackage #:tuition-example-spinner-component
   (:use #:cl #:tuition)
   (:export #:main))
 
 (in-package #:tuition-example-spinner-component)
-
-(eval-when (:load-toplevel :execute)
-  (asdf:load-system :tuition))
 
 ;;; Model
 (defclass spinner-component-model ()

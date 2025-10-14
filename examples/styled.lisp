@@ -6,14 +6,13 @@
 ;;;
 ;;;; Styled example - demonstrates the styling system
 
+(asdf:load-system :tuition)
+
 (defpackage #:tuition-example-styled
   (:use #:cl #:tuition)
   (:export #:main))
 
 (in-package #:tuition-example-styled)
-
-(eval-when (:load-toplevel :execute)
-  (asdf:load-system :tuition))
 
 ;;; Model
 (defclass styled-model ()

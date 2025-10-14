@@ -1,8 +1,13 @@
-#!/usr/bin/env -S sbcl --script
-;;; keybindings.lisp - Demonstrate the key binding system with help text
+;;; keybindings.lisp
 ;;;
-;;; This example shows how to use the keybinding system to create
-;;; structured key handlers with auto-generated help text.
+;;; SPDX-License-Identifier: MIT
+;;;
+;;; Copyright (C) 2025  Anthony Green <green@moxielogic.com>
+;;;
+;;;; Demonstrate the key binding system with help text
+;;;;
+;;;; This example shows how to use the keybinding system to create
+;;;; structured key handlers with auto-generated help text.
 
 (asdf:load-system :tuition)
 

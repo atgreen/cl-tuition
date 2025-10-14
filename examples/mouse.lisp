@@ -6,14 +6,13 @@
 ;;;
 ;;;; Mouse example - demonstrates mouse tracking
 
+(asdf:load-system :tuition)
+
 (defpackage #:tuition-example-mouse
   (:use #:cl #:tuition)
   (:export #:main))
 
 (in-package #:tuition-example-mouse)
-
-(eval-when (:load-toplevel :execute)
-  (asdf:load-system :tuition))
 
 ;;; Model
 (defclass mouse-model ()

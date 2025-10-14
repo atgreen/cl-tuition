@@ -6,14 +6,13 @@
 ;;;
 ;;;; Fancy showcase example for screenshots - demonstrates multiple Tuition features
 
+(asdf:load-system :tuition)
+
 (defpackage #:tuition-example-showcase
   (:use #:cl #:tuition)
   (:export #:main))
 
 (in-package #:tuition-example-showcase)
-
-(eval-when (:load-toplevel :execute)
-  (asdf:load-system :tuition))
 
 ;;; Model
 (defclass showcase-model ()
