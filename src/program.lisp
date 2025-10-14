@@ -350,18 +350,16 @@ Example:
                    (values model (tui:quit-cmd)))
                   (t (values model nil)))
     :view (format nil \"Count: ~D\" (count model)))"
-  (let ((m (gensym "MODEL"))
-        (msg (gensym "MSG")))
-    `(progn
-       (defclass ,class-name () ,(or slots '()))
-       ,(when (or init (null init))
-          `(defmethod init ((,m ,class-name))
-             ,init))
-       ,(when update
-          `(defmethod update ((,m ,class-name) ,msg)
-             ,update))
-       ,(when view
-          `(defmethod view ((,m ,class-name))
-             ,view)))))
+  `(progn
+     (defclass ,class-name () ,(or slots '()))
+     ,(when (or init (null init))
+        `(defmethod init ((model ,class-name))
+           ,init))
+     ,(when update
+        `(defmethod update ((model ,class-name) msg)
+           ,update))
+     ,(when view
+        `(defmethod view ((model ,class-name))
+           ,view))))
 
 ;;; No sentinel-style helpers; prefer keyword options in make-program.
