@@ -57,10 +57,10 @@
 
   Workers block on the command queue and execute commands as they arrive.
   Exit when receiving a nil command (shutdown signal)."
-  (declare (ignore worker-id))  ; Reserved for future logging/debugging
+  (declare (ignore worker-id))
   (handler-case
       (loop while (thread-pool-running pool) do
-        (let ((cmd (trivial-channels:getmsg (thread-pool-queue pool))))
+        (let ((cmd (trivial-channels:recvmsg (thread-pool-queue pool))))
           (cond
             ;; Shutdown signal
             ((null cmd)
