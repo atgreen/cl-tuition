@@ -221,7 +221,24 @@
               (<= mx (zone-info-end-x zone))
               (<= my (zone-info-end-y zone))))))
 
+(defmethod zone-in-bounds-p ((zone zone-info) (msg mouse-event))
+  "Check if a mouse event is within the bounds of a zone.
+   Uses the same coordinate adjustments as mouse-msg."
+  (and zone
+       (>= (zone-info-end-x zone) (zone-info-start-x zone))
+       (>= (zone-info-end-y zone) (zone-info-start-y zone))
+       (let ((mx (1- (mouse-event-x msg)))  ; X is 1-based, convert to 0-based
+             (my (- (mouse-event-y msg) 2))) ; Y needs -2 offset (empirically determined)
+         (and (>= mx (zone-info-start-x zone))
+              (>= my (zone-info-start-y zone))
+              (<= mx (zone-info-end-x zone))
+              (<= my (zone-info-end-y zone))))))
+
 (defmethod zone-in-bounds-p ((zone null) (msg mouse-msg))
+  "nil zone is never in bounds."
+  nil)
+
+(defmethod zone-in-bounds-p ((zone null) (msg mouse-event))
   "nil zone is never in bounds."
   nil)
 
