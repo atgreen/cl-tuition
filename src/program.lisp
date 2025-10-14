@@ -15,19 +15,25 @@
    (running :initform nil :accessor program-running)
    (options :initarg :options :initform nil :accessor program-options)
    (tty-stream :initform nil :accessor program-tty-stream)
-   (restore-fn :initform nil :accessor program-restore-fn))
+   (restore-fn :initform nil :accessor program-restore-fn)
+   (cmd-pool :initform nil :accessor program-cmd-pool))
   (:documentation "A Bubble Tea program instance."))
 
-(defun make-program (model &key alt-screen mouse)
+(defun make-program (model &key alt-screen mouse (pool-size *default-pool-size*))
   "Create a new program with the given initial model.
 
 Options (keyword args only):
   :alt-screen t|nil
-  :mouse      one of :cell-motion, :all-motion, or NIL"
+  :mouse      one of :cell-motion, :all-motion, or NIL
+  :pool-size  number of worker threads for command execution (default: 4)
+              Set to NIL to disable thread pool (spawns thread per command)"
   (when (and mouse (not (member mouse '(:cell-motion :all-motion) :test #'eq)))
     (error "Invalid :mouse option ~S; expected :cell-motion, :all-motion, or NIL" mouse))
+  (when (and pool-size (not (and (integerp pool-size) (> pool-size 0))))
+    (error "Invalid :pool-size ~S; expected positive integer or NIL" pool-size))
   (let ((opts (list :alt-screen (not (null alt-screen))
-                    :mouse mouse)))
+                    :mouse mouse
+                    :pool-size pool-size)))
     (make-instance 'program :model model :options opts)))
 
 (defun send (program msg)
@@ -55,9 +61,15 @@ Options (keyword args only):
   "Run the program's main loop. Blocks until the program exits."
   (let* ((opts (program-options program))
          (alt (getf opts :alt-screen))
-         (mouse (getf opts :mouse)))
+         (mouse (getf opts :mouse))
+         (pool-size (getf opts :pool-size)))
     (with-raw-terminal (:alt-screen alt :mouse mouse)
       (setf (program-running program) t)
+
+      ;; Initialize thread pool if enabled
+      (when (and *use-thread-pool* pool-size)
+        (setf (program-cmd-pool program) (make-pool pool-size program)))
+
       ;; Use *terminal-io* for input
       (setf (program-tty-stream program) *terminal-io*)
 
@@ -127,6 +139,12 @@ Options (keyword args only):
 
           ;; Cooperative shutdown: ask input loop to exit and join
           (setf (program-running program) nil)
+
+          ;; Shutdown thread pool if active
+          (when (program-cmd-pool program)
+            (shutdown-pool (program-cmd-pool program))
+            (setf (program-cmd-pool program) nil))
+
           (bt:join-thread input-thread)
 
           ;; Restore old signal handlers
@@ -150,6 +168,12 @@ Options (keyword args only):
                   (view (program-model program)))
           (event-loop program)
           (setf (program-running program) nil)
+
+          ;; Shutdown thread pool if active
+          (when (program-cmd-pool program)
+            (shutdown-pool (program-cmd-pool program))
+            (setf (program-cmd-pool program) nil))
+
           (bt:join-thread input-thread))))))
 
 ;; Terminal setup/cleanup handled by WITH-RAW-TERMINAL
@@ -188,7 +212,10 @@ Options (keyword args only):
                (view new-model))))))
 
 (defun run-command (program cmd)
-  "Execute a command in a separate thread."
+  "Execute a command.
+
+  If thread pool is enabled and available, submits the command to the pool.
+  Otherwise, spawns a new thread for each command (original behavior)."
   (cond
     ;; Nil command - do nothing
     ((null cmd) nil)
@@ -201,12 +228,21 @@ Options (keyword args only):
 
     ;; Single command function
     ((functionp cmd)
-     (bt:make-thread
-      (lambda ()
-        (let ((msg (funcall cmd)))
-          (when msg
-            (send program msg))))
-      :name "tuition-cmd"))
+     (let ((pool (program-cmd-pool program)))
+       (if (and pool (thread-pool-running pool))
+           ;; Use thread pool
+           (submit-command pool cmd)
+           ;; Fallback to spawning a thread (original behavior)
+           ;; This matches Go's Bubble Tea which spawns a goroutine per command
+           (bt:make-thread
+            (lambda ()
+              (handler-case
+                  (let ((msg (funcall cmd)))
+                    (when msg
+                      (send program msg)))
+                (error (e)
+                  (handle-error :command e))))
+            :name "tuition-cmd"))))
 
     ;; Unknown command type
     (t nil)))

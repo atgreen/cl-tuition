@@ -15,6 +15,7 @@
                 :components ((:file "package")
                              (:file "protocol")
                              (:file "errors")
+                             (:file "thread-pool")
                              (:file "style")
                              (:file "borders")
                              (:file "layout")
