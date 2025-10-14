@@ -194,13 +194,41 @@ Internal helper for markdown rendering."
 
 ;;; Styling Helper
 
+(defun resolve-markdown-color (color-spec)
+  "Resolve a markdown color keyword to actual ANSI code."
+  (cond
+    ((null color-spec) nil)
+    ((stringp color-spec) color-spec)  ; Already a code
+    ((keywordp color-spec)
+     (case color-spec
+       (:black *fg-black*)
+       (:red *fg-red*)
+       (:green *fg-green*)
+       (:yellow *fg-yellow*)
+       (:blue *fg-blue*)
+       (:magenta *fg-magenta*)
+       (:cyan *fg-cyan*)
+       (:white *fg-white*)
+       (:bright-black *fg-bright-black*)
+       (:bright-red *fg-bright-red*)
+       (:bright-green *fg-bright-green*)
+       (:bright-yellow *fg-bright-yellow*)
+       (:bright-blue *fg-bright-blue*)
+       (:bright-magenta *fg-bright-magenta*)
+       (:bright-cyan *fg-bright-cyan*)
+       (:bright-white *fg-bright-white*)
+       (:bold t)  ; Special case for emphasis
+       (:italic t)  ; Special case for emphasis
+       (t nil)))
+    (t color-spec)))  ; Pass through other types
+
 (defun style-text (text &key color bg bold italic underline)
   "Apply ANSI styling to text. Helper function for markdown rendering."
   (if (or color bg bold italic underline)
-      (let ((s (make-style :foreground color
-                          :background bg
-                          :bold bold
-                          :italic italic
+      (let ((s (make-style :foreground (resolve-markdown-color color)
+                          :background (resolve-markdown-color bg)
+                          :bold (or bold (eql color :bold))
+                          :italic (or italic (eql color :italic))
                           :underline underline)))
         (render-styled s text))
       text))
