@@ -1,6 +1,6 @@
-# tuition 0.1.0 Release Notes
+# tuition 1.0.1 Release Notes
 
-I'm pleased to announce tuition 0.1.0, the initial release of a Common Lisp library for building terminal user interfaces.
+I'm pleased to announce tuition 1.0.1, a patch release of the Common Lisp library for building terminal user interfaces.
 
 ## What's New
 
