@@ -23,15 +23,15 @@ jobs:
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
           cd ..
-          tar czf tuition-${VERSION}.tar.gz --transform "s,^tuition,tuition-${VERSION}," \
+          tar czf tuition-${VERSION}.tar.gz --transform "s,^cl-tuition,tuition-${VERSION}," \
             --exclude='.git' \
             --exclude='.github' \
             --exclude='*.txt' \
             --exclude='*.lisp-temp' \
             --exclude='data/' \
             --exclude='.tools/' \
-            tuition
-          mv tuition-${VERSION}.tar.gz tuition/
+            cl-tuition
+          mv tuition-${VERSION}.tar.gz cl-tuition/
 
       - name: Create GitHub release
         uses: ncipollo/release-action@v1
