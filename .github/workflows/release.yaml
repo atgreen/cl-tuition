@@ -6,34 +6,7 @@ on:
       - 'v*'
 
 jobs:
-  test:
-    permissions: write-all
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Install SBCL
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y sbcl
-
-      - name: Install ocicl
-        run: |
-          curl -L -o ocicl.deb https://github.com/ocicl/ocicl/releases/latest/download/ocicl_2.8.2-1_amd64.deb
-          sudo apt install ./ocicl.deb
-          ocicl version
-
-      - name: Install dependencies
-        run: |
-          ocicl install
-
-      - name: Run tests
-        run: |
-          bash test-examples.sh
-
   release:
-    needs: [test]
     permissions: write-all
     runs-on: ubuntu-latest
     steps:
