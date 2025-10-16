@@ -8,7 +8,7 @@
 
 (asdf:load-system :tuition)
 
-(defpackage #:tuition-example-borders
+((defpackage #:tuition-example-borders
   (:use #:cl #:tuition)
   (:export #:main))
 

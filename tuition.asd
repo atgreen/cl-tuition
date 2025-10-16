@@ -5,11 +5,11 @@
   :author "Anthony Green <green@moxielogic.com>"
   :license "MIT"
   :version "0.1.0"
-  :depends-on (#:bordeaux-threads
-               #:trivial-channels
-               #:version-string
-               #:alexandria
-               #:serapeum)
+  :depends-on ("bordeaux-threads"
+               "trivial-channels"
+               "version-string"
+               "alexandria"
+               "serapeum")
   :serial t
   :components ((:module "src"
                 :components ((:file "package")

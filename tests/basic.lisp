@@ -43,7 +43,7 @@
 
       ;; Test border rendering
       (test "border exists"
-            (not (null (border :single)))
+            (not (null *border-normal*))
             t)
 
       ;; Test style creation

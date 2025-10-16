@@ -102,13 +102,14 @@ Parameters:
             (elapsed (/ (- now start) internal-time-units-per-second))
             (remaining (max 0 (- (timer-duration timer) elapsed))))
        (setf (timer-remaining timer) remaining)
-       (if (<= remaining 0)
-           ;; Timer expired
-           (progn
-             (setf (timer-running timer) nil)
-             (values timer (lambda () (make-timer-timeout-msg :id (timer-id timer)))))
-           ;; Still running
-           (values timer (timer-tick-cmd timer)))))
+       (cond
+         ((<= remaining 0)
+          ;; Timer expired
+          (setf (timer-running timer) nil)
+          (values timer (lambda () (make-timer-timeout-msg :id (timer-id timer)))))
+         (t
+          ;; Still running
+          (values timer (timer-tick-cmd timer))))))
 
     (t (values timer nil))))
 
@@ -151,9 +152,12 @@ Parameters:
 (defun timer-toggle (timer)
   "Toggle the timer between running and stopped.
 Returns a tick command if starting, nil if stopping."
-  (if (timer-running timer)
-      (progn (timer-stop timer) nil)
-      (timer-start timer)))
+  (cond
+    ((timer-running timer)
+     (timer-stop timer)
+     nil)
+    (t
+     (timer-start timer))))
 
 (defun timer-set-duration (timer duration)
   "Set the timer duration in seconds."

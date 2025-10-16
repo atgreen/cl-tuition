@@ -119,9 +119,12 @@ Parameters:
 (defun stopwatch-toggle (stopwatch)
   "Toggle the stopwatch between running and stopped.
 Returns a tick command if starting, nil if stopping."
-  (if (stopwatch-running stopwatch)
-      (progn (stopwatch-stop stopwatch) nil)
-      (stopwatch-start stopwatch)))
+  (cond
+    ((stopwatch-running stopwatch)
+     (stopwatch-stop stopwatch)
+     nil)
+    (t
+     (stopwatch-start stopwatch))))
 
 (defun stopwatch-tick-cmd (stopwatch)
   "Create a tick command for the stopwatch."

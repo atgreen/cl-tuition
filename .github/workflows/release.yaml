@@ -1,0 +1,71 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  test:
+    permissions: write-all
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install SBCL
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y sbcl
+
+      - name: Install ocicl
+        run: |
+          curl -L https://github.com/ocicl/ocicl/releases/latest/download/ocicl-linux-x86_64.tar.gz | tar xz
+          sudo mv ocicl /usr/local/bin/
+          ocicl version
+
+      - name: Install dependencies
+        run: |
+          ocicl install
+
+      - name: Run tests
+        run: |
+          bash test-examples.sh
+
+  release:
+    needs: [test]
+    permissions: write-all
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Extract version number
+        id: get_version
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+
+      - name: Create source tarball
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          cd ..
+          tar czf tuition-${VERSION}.tar.gz --transform "s,^tuition,tuition-${VERSION}," \
+            --exclude='.git' \
+            --exclude='.github' \
+            --exclude='*.txt' \
+            --exclude='*.lisp-temp' \
+            --exclude='data/' \
+            --exclude='.tools/' \
+            tuition
+          mv tuition-${VERSION}.tar.gz tuition/
+
+      - name: Create GitHub release
+        uses: ncipollo/release-action@v1
+        with:
+          tag: ${{ github.ref_name }}
+          name: Release ${{ github.ref_name }}
+          bodyFile: docs/release-notes/RELEASE-NOTES-${{ steps.get_version.outputs.version }}.md
+          artifacts: |
+            tuition-${{ steps.get_version.outputs.version }}.tar.gz
+          allowUpdates: true

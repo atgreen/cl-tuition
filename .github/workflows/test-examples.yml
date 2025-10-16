@@ -1,0 +1,47 @@
+name: Test Examples
+
+on:
+  push:
+    branches: [ master, main ]
+  pull_request:
+    branches: [ master, main ]
+
+jobs:
+  test-examples:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Install SBCL
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y sbcl
+
+    - name: Install Quicklisp
+      run: |
+        curl -O https://beta.quicklisp.org/quicklisp.lisp
+        sbcl --non-interactive --load quicklisp.lisp \
+          --eval "(quicklisp-quickstart:install :path \"$HOME/quicklisp\")" \
+          --eval "(ql-util:without-prompting (ql:add-to-init-file))"
+
+    - name: Setup ASDF to find tuition
+      run: |
+        mkdir -p ~/.config/common-lisp/source-registry.conf.d/
+        echo "(:tree \"$GITHUB_WORKSPACE\")" > ~/.config/common-lisp/source-registry.conf.d/50-tuition.conf
+
+    - name: Load dependencies
+      run: |
+        sbcl --non-interactive --eval "(ql:quickload :tuition)"
+
+    - name: Run unit tests
+      run: |
+        sbcl --non-interactive \
+          --eval "(ql:quickload :tuition/tests)" \
+          --eval "(tuition-tests:run-tests)" \
+          --eval "(quit)"
+
+    - name: Run example tests
+      run: |
+        ./test-examples.sh

@@ -20,7 +20,8 @@
   (let ((stream (typecase stream
                   (synonym-stream (symbol-value (synonym-stream-symbol stream)))
                   (two-way-stream (two-way-stream-input-stream stream))
-                  (sb-sys:fd-stream stream))))
+                  (sb-sys:fd-stream stream)
+                  (otherwise stream))))
     (sb-posix:file-descriptor stream)))
 
 (defun enter-raw-mode ()
