@@ -404,6 +404,6 @@ MIT License — see `LICENSE`.
 
 ## Author and Acknowledgments
 
-Tuition was creates by Anthony Green, with the assitance of various
+Tuition was creates by Anthony Green, with the assistance of various
 LLMs, and drawing inspiraton from the Charmbracelet ecosystem (Bubble
 Tea, Lip Gloss, Bubbles, Bubblezone, Harmonica).
