@@ -8,13 +8,15 @@
 
 (in-package #:tuition)
 
-#+sbcl
+#+(and sbcl unix)
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (require :sb-posix))
 
+#-win32
 (defvar *original-termios* nil
   "Stores the terminal state before entering raw mode.")
 
+#+(and sbcl unix)
 (defun stream-fd (stream)
   "Get the file descriptor for a stream."
   (let ((stream (typecase stream
@@ -25,8 +27,13 @@
     (sb-posix:file-descriptor stream)))
 
 (defun enter-raw-mode ()
-  "Put the terminal in raw mode for TUI applications using POSIX termios."
-  #+sbcl
+  "Put the terminal in raw mode for TUI applications."
+  #+win32
+  (handler-case
+      (win32-enter-raw-mode)
+    (error (c)
+      (error (make-condition 'terminal-operation-error :operation :enter-raw-mode :reason c))))
+  #+(and sbcl unix)
   (handler-case
       (let* ((fd (stream-fd *terminal-io*))
              (termios (sb-posix:tcgetattr fd)))
@@ -36,7 +43,11 @@
 
         ;; Get a fresh termios to modify
         (let ((new-termios (sb-posix:tcgetattr fd)))
-          ;; Disable canonical mode (ICANON) and echo (ECHO)
+          ;; Disable local flags (like cfmakeraw in termios(3))
+          ;; - ICANON: canonical mode (line buffering)
+          ;; - ECHO, ECHOE, ECHOK, ECHONL: echo modes
+          ;; - ISIG: signal generation
+          ;; - IEXTEN: extended input processing
           (setf (sb-posix:termios-lflag new-termios)
                 (logand (sb-posix:termios-lflag new-termios)
                         (lognot (logior sb-posix:icanon
@@ -44,32 +55,60 @@
                                         sb-posix:echoe
                                         sb-posix:echok
                                         sb-posix:echonl
-                                        sb-posix:isig))))
+                                        sb-posix:isig
+                                        sb-posix:iexten))))
 
-          ;; Disable input processing
+          ;; Disable input processing (like cfmakeraw)
+          ;; - IGNBRK, BRKINT: break handling
+          ;; - PARMRK: parity error marking
+          ;; - ISTRIP: strip 8th bit
+          ;; - INLCR, IGNCR, ICRNL: newline/return conversions
+          ;; - IXON: software flow control
           (setf (sb-posix:termios-iflag new-termios)
                 (logand (sb-posix:termios-iflag new-termios)
-                        (lognot (logior sb-posix:icrnl
+                        (lognot (logior sb-posix:ignbrk
+                                        sb-posix:brkint
+                                        sb-posix:parmrk
+                                        sb-posix:istrip
+                                        sb-posix:inlcr
+                                        sb-posix:igncr
+                                        sb-posix:icrnl
                                         sb-posix:ixon))))
 
-          ;; Keep OPOST enabled so newlines are properly converted to CR+LF
-          ;; (raw output mode disabled to allow proper line handling)
+          ;; Keep OPOST enabled for newline conversion (NL -> CR+LF)
+          ;; Unlike cfmakeraw, we enable OPOST to handle line endings automatically
+          ;; This ensures proper display without requiring the application to convert \n to \r\n
+          ;; (cflag is left unchanged - we don't modify output flags)
 
-          ;; Set minimum chars and timeout for non-blocking read
+          ;; Set character size to 8 bits and disable parity (like cfmakeraw)
+          (setf (sb-posix:termios-cflag new-termios)
+                (logior (logand (sb-posix:termios-cflag new-termios)
+                                (lognot (logior sb-posix:csize
+                                                sb-posix:parenb)))
+                        sb-posix:cs8))
+
+          ;; Set minimum chars and timeout for character-by-character input
+          ;; VMIN=1, VTIME=0: block until at least one character is available
+          ;; This matches Go's term.MakeRaw and is portable across Unix systems
           (let ((cc (sb-posix:termios-cc new-termios)))
-            (setf (aref cc sb-posix:vmin) 0)   ; Return immediately
+            (setf (aref cc sb-posix:vmin) 1)   ; Block until at least 1 char
             (setf (aref cc sb-posix:vtime) 0))  ; No timeout
 
           ;; Apply the new settings immediately
           (sb-posix:tcsetattr fd sb-posix:tcsanow new-termios)))
     (error (c)
       (error (make-condition 'terminal-operation-error :operation :enter-raw-mode :reason c))))
-  #-sbcl
-  (warn "Raw mode not yet implemented for this Lisp"))
+  #-(or win32 (and sbcl unix))
+  (warn "Raw mode not yet implemented for this platform"))
 
 (defun exit-raw-mode ()
   "Restore the terminal to its original state."
-  #+sbcl
+  #+win32
+  (handler-case
+      (win32-exit-raw-mode)
+    (error (c)
+      (error (make-condition 'terminal-operation-error :operation :exit-raw-mode :reason c))))
+  #+(and sbcl unix)
   (handler-case
       (when *original-termios*
         (let ((fd (stream-fd *terminal-io*)))
@@ -77,11 +116,16 @@
           (setf *original-termios* nil)))
     (error (c)
       (error (make-condition 'terminal-operation-error :operation :exit-raw-mode :reason c))))
-  #-sbcl
-  (warn "Raw mode not yet implemented for this Lisp"))
+  #-(or win32 (and sbcl unix))
+  (warn "Raw mode not yet implemented for this platform"))
 
 (defun get-terminal-size ()
   "Get the current terminal size as (width . height)."
+  #+win32
+  (handler-case
+      (win32-get-terminal-size)
+    (error ()
+      (cons 80 24))) ; default fallback
   #+unix
   (handler-case
       ;; Use /dev/tty to query the actual terminal, not stdin
@@ -94,7 +138,7 @@
                   (parse-integer (first parts))))))
     (error ()
       (cons 80 24))) ; default fallback
-  #+windows
+  #-(or win32 unix)
   (cons 80 24)) ; default fallback
 
 (defun clear-screen (&optional (stream *standard-output*))
