@@ -14,31 +14,35 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Install SBCL
+    - name: Install SBCL and ocicl
+      env:
+        GH_TOKEN: ${{ github.token }}
       run: |
         sudo apt-get update
-        sudo apt-get install -y sbcl
+        sudo apt-get install -y sbcl curl jq
+        OCICL_URL=$(curl -sL -H "Authorization: token $GH_TOKEN" \
+          https://api.github.com/repos/ocicl/ocicl/releases/latest | \
+          jq -r '.assets[] | select(.name | endswith("_amd64.deb")) | .browser_download_url')
+        curl -sL "$OCICL_URL" -o /tmp/ocicl.deb
+        sudo dpkg -i /tmp/ocicl.deb
+        ocicl setup > ~/.sbclrc
 
-    - name: Install Quicklisp
-      run: |
-        curl -O https://beta.quicklisp.org/quicklisp.lisp
-        sbcl --non-interactive --load quicklisp.lisp \
-          --eval "(quicklisp-quickstart:install :path \"$HOME/quicklisp\")" \
-          --eval "(ql-util:without-prompting (ql:add-to-init-file))"
+    - name: Fetch Lisp dependencies
+      run: ocicl install
 
     - name: Setup ASDF to find tuition
       run: |
         mkdir -p ~/.config/common-lisp/source-registry.conf.d/
         echo "(:tree \"$GITHUB_WORKSPACE\")" > ~/.config/common-lisp/source-registry.conf.d/50-tuition.conf
 
-    - name: Load dependencies
+    - name: Load tuition
       run: |
-        sbcl --non-interactive --eval "(ql:quickload :tuition)"
+        sbcl --non-interactive --eval "(asdf:load-system :tuition)"
 
     - name: Run unit tests
       run: |
         sbcl --non-interactive \
-          --eval "(ql:quickload :tuition/tests)" \
+          --eval "(asdf:load-system :tuition/tests)" \
           --eval "(tuition-tests:run-tests)" \
           --eval "(quit)"
 
