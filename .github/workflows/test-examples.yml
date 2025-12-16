@@ -1,51 +1,108 @@
-name: Test Examples
+name: CI
 
 on:
   push:
-    branches: [ master, main ]
+    branches: ['*']
   pull_request:
-    branches: [ master, main ]
+    branches: [master, main]
+  workflow_dispatch:
 
 jobs:
-  test-examples:
+  # ========================================
+  # Fetch dependencies on Linux using ocicl
+  # ========================================
+  fetch-deps:
     runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install ocicl (Linux)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y sbcl curl jq
+          OCICL_URL=$(curl -sL -H "Authorization: token $GH_TOKEN" \
+            https://api.github.com/repos/ocicl/ocicl/releases/latest | \
+            jq -r '.assets[] | select(.name | endswith("_amd64.deb")) | .browser_download_url')
+          curl -sL "$OCICL_URL" -o /tmp/ocicl.deb
+          sudo dpkg -i /tmp/ocicl.deb
+          ocicl setup > ~/.sbclrc
+
+      - name: Fetch Lisp dependencies
+        run: ocicl install
+
+      - name: Upload ocicl directory
+        uses: actions/upload-artifact@v4
+        with:
+          name: ocicl-deps
+          path: ocicl
+          retention-days: 1
+
+  # ========================================
+  # Build and test on all platforms
+  # ========================================
+  test:
+    needs: fetch-deps
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            deps: "sudo apt-get update && sudo apt-get install -y sbcl"
+          - os: macos-latest
+            deps: "brew install sbcl"
+          - os: windows-latest
+            deps: "choco install -y sbcl"
+
+    runs-on: ${{ matrix.os }}
+
+    defaults:
+      run:
+        shell: bash
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-    - name: Install SBCL and ocicl
-      env:
-        GH_TOKEN: ${{ github.token }}
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y sbcl curl jq
-        OCICL_URL=$(curl -sL -H "Authorization: token $GH_TOKEN" \
-          https://api.github.com/repos/ocicl/ocicl/releases/latest | \
-          jq -r '.assets[] | select(.name | endswith("_amd64.deb")) | .browser_download_url')
-        curl -sL "$OCICL_URL" -o /tmp/ocicl.deb
-        sudo dpkg -i /tmp/ocicl.deb
-        ocicl setup > ~/.sbclrc
+      - name: Download ocicl dependencies
+        uses: actions/download-artifact@v4
+        with:
+          name: ocicl-deps
+          path: ocicl
 
-    - name: Fetch Lisp dependencies
-      run: ocicl install
+      - name: Install deps (Linux)
+        if: runner.os == 'Linux'
+        run: ${{ matrix.deps }}
 
-    - name: Setup ASDF to find tuition
-      run: |
-        mkdir -p ~/.config/common-lisp/source-registry.conf.d/
-        echo "(:tree \"$GITHUB_WORKSPACE\")" > ~/.config/common-lisp/source-registry.conf.d/50-tuition.conf
+      - name: Install deps (macOS)
+        if: runner.os == 'macOS'
+        run: ${{ matrix.deps }}
 
-    - name: Load tuition
-      run: |
-        sbcl --non-interactive --eval "(asdf:load-system :tuition)"
+      - name: Install deps (Windows)
+        if: runner.os == 'Windows'
+        shell: powershell
+        run: |
+          choco install -y sbcl
 
-    - name: Run unit tests
-      run: |
-        sbcl --non-interactive \
-          --eval "(asdf:load-system :tuition/tests)" \
-          --eval "(tuition-tests:run-tests)" \
-          --eval "(quit)"
+      - name: Setup ASDF to find tuition
+        run: |
+          mkdir -p ~/.config/common-lisp/source-registry.conf.d/
+          echo "(:tree \"$GITHUB_WORKSPACE\")" > ~/.config/common-lisp/source-registry.conf.d/50-tuition.conf
 
-    - name: Run example tests
-      run: |
-        ./test-examples.sh
+      - name: Load tuition
+        run: |
+          sbcl --non-interactive --eval "(asdf:load-system :tuition)"
+
+      - name: Run unit tests
+        run: |
+          sbcl --non-interactive \
+            --eval "(asdf:load-system :tuition/tests)" \
+            --eval "(tuition-tests:run-tests)" \
+            --eval "(quit)"
+
+      - name: Run example tests (Linux only)
+        if: runner.os == 'Linux'
+        run: |
+          ./test-examples.sh

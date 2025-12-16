@@ -73,8 +73,8 @@ Options (keyword args only):
       ;; Use *terminal-io* for input
       (setf (program-tty-stream program) *terminal-io*)
 
-      ;; Set up signal handlers
-      #+sbcl
+      ;; Set up signal handlers (POSIX signals not available on Windows)
+      #+(and sbcl (not windows))
       (let ((old-sigwinch-handler nil)
             (old-sigtstp-handler nil)
             (old-sigcont-handler nil))
@@ -155,9 +155,9 @@ Options (keyword args only):
           (when old-sigcont-handler
             (sb-sys:enable-interrupt sb-posix:sigcont old-sigcont-handler))))
 
-      #-sbcl
+      #-(and sbcl (not windows))
       (progn
-        ;; Non-SBCL: no SIGWINCH support, just run without resize handling
+        ;; Non-SBCL or Windows: no SIGWINCH support, just run without resize handling
         (let ((input-thread (bt:make-thread
                              (lambda () (input-loop program))
                              :name "tuition-input")))
@@ -269,8 +269,8 @@ Options (keyword args only):
   "Read input and send input messages (key/mouse/paste) to the program."
   ;; Set the input stream for this thread
   (setf *input-stream* (program-tty-stream program))
-  ;; Suppress SBCL warnings about I/O operations in this thread
-  #+sbcl
+  ;; Suppress SBCL warnings about I/O operations in this thread (Unix only)
+  #+(and sbcl (not windows))
   (handler-bind ((warning #'muffle-warning))
     (handler-case
         (loop while (program-running program) do
@@ -301,7 +301,7 @@ Options (keyword args only):
           (sleep 0.01)) ; Small delay to prevent busy-waiting
       (error (e)
         (handle-error :input-loop e))))
-  #-sbcl
+  #-(and sbcl (not windows))
   (handler-case
       (loop while (program-running program) do
         (handler-case
