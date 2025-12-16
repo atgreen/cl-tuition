@@ -86,10 +86,11 @@ jobs:
         run: |
           choco install -y sbcl
 
-      - name: Setup ASDF to find tuition
+      - name: Setup ASDF to find tuition and ocicl deps
         run: |
-          mkdir -p ~/.config/common-lisp/source-registry.conf.d/
-          echo "(:tree \"$GITHUB_WORKSPACE\")" > ~/.config/common-lisp/source-registry.conf.d/50-tuition.conf
+          echo "(require \"asdf\")" > ~/.sbclrc
+          echo "(asdf:initialize-source-registry '(:source-registry :inherit-configuration (:tree \"$GITHUB_WORKSPACE/ocicl\") (:tree \"$GITHUB_WORKSPACE\")))" >> ~/.sbclrc
+          cat ~/.sbclrc
 
       - name: Load tuition
         run: |
