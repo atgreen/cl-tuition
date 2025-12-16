@@ -267,14 +267,16 @@ Internal helper for markdown rendering."
                        (char= (char text (+ pos 1)) #\*))
                   (let ((end (search "**" text :start2 (+ pos 2))))
                     (if end
-                        (let ((content (subseq text (+ pos 2) end)))
+                        (let* ((content (subseq text (+ pos 2) end))
+                               ;; Recursively process inline styles (code, etc.) inside bold
+                               (processed (parse-inline-styles content style)))
                           (setf result
                                 (concatenate 'string result
                                             (if (markdown-style-strong-color style)
-                                                (style-text content
+                                                (style-text processed
                                                            :color (markdown-style-strong-color style)
                                                            :bold t)
-                                                content)))
+                                                processed)))
                           (setf pos (+ end 2)))
                         (progn
                           (setf result (concatenate 'string result (string char)))
@@ -284,14 +286,16 @@ Internal helper for markdown rendering."
                  ((char= char #\*)
                   (let ((end (position #\* text :start (+ pos 1))))
                     (if end
-                        (let ((content (subseq text (+ pos 1) end)))
+                        (let* ((content (subseq text (+ pos 1) end))
+                               ;; Recursively process inline styles (code, etc.) inside italic
+                               (processed (parse-inline-styles content style)))
                           (setf result
                                 (concatenate 'string result
                                             (if (markdown-style-emph-color style)
-                                                (style-text content
+                                                (style-text processed
                                                            :color (markdown-style-emph-color style)
                                                            :italic t)
-                                                content)))
+                                                processed)))
                           (setf pos (+ end 1)))
                         (progn
                           (setf result (concatenate 'string result (string char)))
@@ -376,21 +380,23 @@ Internal helper for markdown rendering."
 
          (when (and (< pos (length trimmed))
                    (char= (char trimmed pos) #\Space))
-           (let ((content (string-trim '(#\Space) (subseq trimmed pos))))
+           (let* ((content (string-trim '(#\Space) (subseq trimmed pos)))
+                  ;; Process inline styles (code, bold, etc.) in header content
+                  (styled-content (parse-inline-styles content style)))
              (case level
                (1 (style-text (concatenate 'string
                                           (markdown-style-h1-prefix style)
-                                          content)
+                                          styled-content)
                              :color (markdown-style-h1-color style)
                              :bold (markdown-style-h1-bold style)))
                (2 (style-text (concatenate 'string
                                           (markdown-style-h2-prefix style)
-                                          content)
+                                          styled-content)
                              :color (markdown-style-h2-color style)
                              :bold (markdown-style-h2-bold style)))
                (3 (style-text (concatenate 'string
                                           (markdown-style-h3-prefix style)
-                                          content)
+                                          styled-content)
                              :color (markdown-style-h3-color style)
                              :bold (markdown-style-h3-bold style)))
                (t (parse-inline-styles trimmed style)))))))
@@ -400,13 +406,19 @@ Internal helper for markdown rendering."
             (member (char trimmed 0) '(#\- #\*))
             (char= (char trimmed 1) #\Space))
        (let* ((content (string-trim '(#\Space) (subseq trimmed 2)))
-              (indent (markdown-style-list-indent style))
+              (base-indent (markdown-style-list-indent style))
               (bullet (markdown-style-list-bullet style))
-              (styled-content (parse-inline-styles content style)))
+              (bullet-width (visible-length bullet))
+              (styled-content (parse-inline-styles content style))
+              ;; Available width for text (after indent and bullet)
+              (text-width (- width base-indent bullet-width))
+              ;; Wrap with hanging indent: continuation lines indent by bullet-width
+              (wrapped (wrap-text styled-content text-width
+                                 :continuation-indent (+ base-indent bullet-width))))
          (concatenate 'string
-                     (make-string indent :initial-element #\Space)
+                     (make-string base-indent :initial-element #\Space)
                      bullet
-                     styled-content)))
+                     wrapped)))
 
       ;; Ordered list: 1. 2. etc
       ((and (> (length trimmed) 2)
@@ -414,14 +426,20 @@ Internal helper for markdown rendering."
             (char= (char trimmed 1) #\.)
             (char= (char trimmed 2) #\Space))
        (let* ((content (string-trim '(#\Space) (subseq trimmed 3)))
-              (indent (markdown-style-list-indent style))
+              (base-indent (markdown-style-list-indent style))
               (number (digit-char-p (char trimmed 0)))
               (bullet (format nil (markdown-style-ordered-bullet-format style) number))
-              (styled-content (parse-inline-styles content style)))
+              (bullet-width (visible-length bullet))
+              (styled-content (parse-inline-styles content style))
+              ;; Available width for text (after indent and bullet)
+              (text-width (- width base-indent bullet-width))
+              ;; Wrap with hanging indent: continuation lines indent by bullet-width
+              (wrapped (wrap-text styled-content text-width
+                                 :continuation-indent (+ base-indent bullet-width))))
          (concatenate 'string
-                     (make-string indent :initial-element #\Space)
+                     (make-string base-indent :initial-element #\Space)
                      bullet
-                     styled-content)))
+                     wrapped)))
 
       ;; Quote: >
       ((and (> (length trimmed) 0) (char= (char trimmed 0) #\>))
@@ -445,9 +463,10 @@ Internal helper for markdown rendering."
             (char= (char trimmed 0) #\|))
        nil) ;; Handled separately in render-markdown
 
-      ;; Regular paragraph text
+      ;; Regular paragraph text - wrap to width
       (t
-       (parse-inline-styles trimmed style)))))
+       (let ((styled (parse-inline-styles trimmed style)))
+         (markdown-wrap-text styled width))))))
 
 ;;; Table Rendering
 
