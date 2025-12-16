@@ -217,8 +217,10 @@ Internal helper for markdown rendering."
        (:bright-magenta *fg-bright-magenta*)
        (:bright-cyan *fg-bright-cyan*)
        (:bright-white *fg-bright-white*)
-       (:bold t)  ; Special case for emphasis
-       (:italic t)  ; Special case for emphasis
+       ;; :bold and :italic are style attributes, not colors
+       ;; Return nil so they don't get added to color codes
+       (:bold nil)
+       (:italic nil)
        (t nil)))
     (t color-spec)))  ; Pass through other types
 
@@ -234,6 +236,21 @@ Internal helper for markdown rendering."
       text))
 
 ;;; Inline Parsing
+
+(defun backtick-char-p (char)
+  "Check if CHAR is a backtick or backtick-like character."
+  (member (char-code char)
+          '(#x0060    ; ` GRAVE ACCENT (standard backtick)
+            #x2018    ; ' LEFT SINGLE QUOTATION MARK
+            #x2019    ; ' RIGHT SINGLE QUOTATION MARK
+            #x02CB    ; ˋ MODIFIER LETTER GRAVE ACCENT
+            #xFF40))) ; ` FULLWIDTH GRAVE ACCENT
+
+(defun find-closing-backtick (text start)
+  "Find closing backtick (or backtick-like char) in TEXT starting from START."
+  (loop for i from start below (length text)
+        when (backtick-char-p (char text i))
+        return i))
 
 (defun parse-inline-styles (text style)
   "Parse inline markdown styles: **bold**, *italic*, `code`, [links](url)."
@@ -280,9 +297,9 @@ Internal helper for markdown rendering."
                           (setf result (concatenate 'string result (string char)))
                           (incf pos)))))
 
-                 ;; Code: `text`
-                 ((char= char #\`)
-                  (let ((end (position #\` text :start (+ pos 1))))
+                 ;; Code: `text` (handles various backtick-like characters)
+                 ((backtick-char-p char)
+                  (let ((end (find-closing-backtick text (+ pos 1))))
                     (if end
                         (let ((content (subseq text (+ pos 1) end)))
                           (setf result
@@ -423,9 +440,129 @@ Internal helper for markdown rendering."
             (string= (subseq trimmed 0 3) "```"))
        nil) ;; Handled separately in render-markdown
 
+      ;; Table row: | ... |
+      ((and (> (length trimmed) 0)
+            (char= (char trimmed 0) #\|))
+       nil) ;; Handled separately in render-markdown
+
       ;; Regular paragraph text
       (t
        (parse-inline-styles trimmed style)))))
+
+;;; Table Rendering
+
+(defun table-row-p (line)
+  "Check if LINE is a markdown table row (starts with |)."
+  (let ((trimmed (string-trim '(#\Space #\Tab) line)))
+    (and (> (length trimmed) 0)
+         (char= (char trimmed 0) #\|))))
+
+(defun table-separator-p (line)
+  "Check if LINE is a markdown table separator row (|---|---|)."
+  (let ((trimmed (string-trim '(#\Space #\Tab) line)))
+    (and (table-row-p trimmed)
+         ;; Check if it only contains |, -, :, and spaces
+         (every (lambda (c)
+                  (member c '(#\| #\- #\: #\Space #\Tab)))
+                trimmed))))
+
+(defun parse-table-row (line)
+  "Parse a table row into a list of cell contents."
+  (let* ((trimmed (string-trim '(#\Space #\Tab) line))
+         ;; Remove leading and trailing |
+         (inner (if (and (> (length trimmed) 1)
+                         (char= (char trimmed 0) #\|))
+                    (subseq trimmed 1)
+                    trimmed))
+         (inner (if (and (> (length inner) 0)
+                         (char= (char inner (1- (length inner))) #\|))
+                    (subseq inner 0 (1- (length inner)))
+                    inner)))
+    ;; Split by | and trim each cell
+    (mapcar (lambda (cell) (string-trim '(#\Space #\Tab) cell))
+            (split-by-char inner #\|))))
+
+(defun split-by-char (string char)
+  "Split STRING by CHAR into a list of substrings."
+  (let ((result '())
+        (start 0))
+    (loop for i from 0 below (length string)
+          when (char= (char string i) char)
+          do (push (subseq string start i) result)
+             (setf start (1+ i)))
+    (push (subseq string start) result)
+    (nreverse result)))
+
+(defun render-table (table-lines style)
+  "Render markdown table lines as a formatted table."
+  (let* ((rows (loop for line in table-lines
+                     unless (table-separator-p line)
+                     collect (parse-table-row line)))
+         (num-cols (if rows (length (first rows)) 0))
+         ;; Pre-compute styled cells and calculate column widths based on visible length
+         (styled-rows (mapcar (lambda (row)
+                                (mapcar (lambda (cell)
+                                          (parse-inline-styles (or cell "") style))
+                                        row))
+                              rows))
+         (col-widths (make-list num-cols :initial-element 0)))
+    (when (zerop num-cols)
+      (return-from render-table ""))
+    ;; Find max visible width for each column
+    (dolist (row styled-rows)
+      (loop for cell in row
+            for i from 0
+            when (< i num-cols)
+            do (setf (nth i col-widths)
+                     (max (nth i col-widths) (visible-length cell)))))
+    ;; Build the table output
+    (let ((output '())
+          (border-top "")
+          (border-mid "")
+          (border-bot ""))
+      ;; Build border strings
+      (setf border-top
+            (concatenate 'string "┌"
+                        (format nil "~{~A~^┬~}"
+                                (mapcar (lambda (w) (make-string (+ w 2) :initial-element #\─))
+                                        col-widths))
+                        "┐"))
+      (setf border-mid
+            (concatenate 'string "├"
+                        (format nil "~{~A~^┼~}"
+                                (mapcar (lambda (w) (make-string (+ w 2) :initial-element #\─))
+                                        col-widths))
+                        "┤"))
+      (setf border-bot
+            (concatenate 'string "└"
+                        (format nil "~{~A~^┴~}"
+                                (mapcar (lambda (w) (make-string (+ w 2) :initial-element #\─))
+                                        col-widths))
+                        "┘"))
+      ;; Add top border
+      (push border-top output)
+      ;; Add rows
+      (loop for row in styled-rows
+            for row-num from 0
+            do (let ((cells (loop for cell in row
+                                  for w in col-widths
+                                  for i from 0 below num-cols
+                                  ;; Calculate padding based on visible length
+                                  for vis-len = (visible-length cell)
+                                  for padding = (- w vis-len)
+                                  collect (format nil " ~A~A " cell
+                                                 (make-string (max 0 padding) :initial-element #\Space)))))
+                 (push (concatenate 'string "│"
+                                   (format nil "~{~A~^│~}" cells)
+                                   "│")
+                       output)
+                 ;; Add separator after header row
+                 (when (= row-num 0)
+                   (push border-mid output))))
+      ;; Add bottom border
+      (push border-bot output)
+      ;; Return as single string
+      (format nil "~{~A~^~%~}" (nreverse output)))))
 
 ;;; Main Rendering Function
 
@@ -445,12 +582,15 @@ Example:
         (lines (split-string-by-newline text))
         (result '())
         (in-code-block nil)
-        (code-block-lines '()))
+        (code-block-lines '())
+        (in-table nil)
+        (table-lines '()))
 
     (dolist (line lines)
       (cond
         ;; Check for code block markers
-        ((and (>= (length (string-trim '(#\Space) line)) 3)
+        ((and (not in-table)
+              (>= (length (string-trim '(#\Space) line)) 3)
               (string= (subseq (string-trim '(#\Space) line) 0 3) "```"))
          (if in-code-block
              ;; End code block
@@ -473,11 +613,36 @@ Example:
         (in-code-block
          (push line code-block-lines))
 
+        ;; Table row handling
+        ((and (not in-code-block) (table-row-p line))
+         (if in-table
+             ;; Continue collecting table rows
+             (push line table-lines)
+             ;; Start new table
+             (progn
+               (setf in-table t)
+               (push line table-lines))))
+
+        ;; End of table (non-table line while in-table)
+        (in-table
+         ;; Render the collected table
+         (push (render-table (nreverse table-lines) (renderer-style renderer)) result)
+         (setf in-table nil
+               table-lines '())
+         ;; Process the current line normally
+         (let ((rendered (render-markdown-line line renderer)))
+           (when rendered
+             (push rendered result))))
+
         ;; Regular line
         (t
          (let ((rendered (render-markdown-line line renderer)))
            (when rendered
              (push rendered result))))))
+
+    ;; Handle any remaining table at end of input
+    (when in-table
+      (push (render-table (nreverse table-lines) (renderer-style renderer)) result))
 
     (format nil "~{~A~^~%~}" (nreverse result))))
 
