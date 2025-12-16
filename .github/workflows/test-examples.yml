@@ -88,8 +88,10 @@ jobs:
 
       - name: Setup ASDF to find tuition and ocicl deps
         run: |
+          # Convert Windows backslashes to forward slashes for ASDF
+          WORKSPACE="${GITHUB_WORKSPACE//\\//}"
           echo "(require \"asdf\")" > ~/.sbclrc
-          echo "(asdf:initialize-source-registry '(:source-registry :inherit-configuration (:tree \"$GITHUB_WORKSPACE/ocicl\") (:tree \"$GITHUB_WORKSPACE\")))" >> ~/.sbclrc
+          echo "(asdf:initialize-source-registry '(:source-registry :inherit-configuration (:tree \"$WORKSPACE/ocicl\") (:tree \"$WORKSPACE\")))" >> ~/.sbclrc
           cat ~/.sbclrc
 
       - name: Load tuition
