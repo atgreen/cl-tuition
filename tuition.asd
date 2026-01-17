@@ -40,7 +40,8 @@
                              (:file "progress")
                              (:file "stopwatch")
                              (:file "timer")
-                             (:file "help"))))
+                             (:file "help")
+                             (:file "datepicker"))))
   :in-order-to ((test-op (test-op "tuition/tests"))))
 
 (defsystem "tuition/tests"

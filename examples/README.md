@@ -46,6 +46,7 @@ Replace `showcase` with any example filename. Each example loads the Tuition sys
 - `textinput.lisp` — Basic text input field. Type to edit, arrows move cursor, `Enter`/`Esc` quit.
 - `textinput-component.lisp` — Multi-field registration form with full-featured textinput component (password masking, validation, Tab/Shift+Tab navigation, undo/redo, kill/yank). `q` or `Ctrl+C` quits.
 - `chat.lisp` — Chat interface demo using textarea and viewport components. Type messages and press `Enter` to send, `Esc` or `Ctrl+C` quits.
+- `datepicker.lisp` — Interactive calendar date picker. Arrow keys navigate days/weeks, `[`/`]` for months, `Enter` selects, `q` quits.
 
 ### Animation & Components
 

@@ -172,6 +172,103 @@ Scrollable list with selection and keyboard navigation.
   Date
 ```
 
+### Date Picker
+
+Interactive calendar for date selection with keyboard navigation.
+
+```lisp
+(use-package :tui.datepicker)
+
+;; Create a date picker (defaults to today)
+(defparameter *picker* (make-datepicker))
+
+;; Create with specific date and selection
+(defparameter *picker* (make-datepicker
+                        :time (encode-universal-time 0 0 0 15 6 2025)  ; June 15, 2025
+                        :selected (encode-universal-time 0 0 0 20 6 2025)))
+
+;; In your update - delegate key messages
+(defmethod tui:update ((model my-model) msg)
+  (cond
+    ((tui:key-msg-p msg)
+     (multiple-value-bind (new-picker cmd)
+         (datepicker-update (model-picker model) msg)
+       (setf (model-picker model) new-picker)
+       (values model cmd)))
+    ...))
+
+;; In your view
+(defmethod tui:view ((model my-model))
+  (datepicker-view (model-picker model)))
+
+;; Get/check selected date
+(datepicker-selected *picker*)   ; Returns universal-time or NIL
+
+;; Programmatic navigation
+(datepicker-tomorrow *picker*)
+(datepicker-yesterday *picker*)
+(datepicker-next-week *picker*)
+(datepicker-last-week *picker*)
+(datepicker-next-month *picker*)
+(datepicker-last-month *picker*)
+(datepicker-next-year *picker*)
+(datepicker-last-year *picker*)
+
+;; Selection control
+(datepicker-select *picker*)     ; Select focused date
+(datepicker-unselect *picker*)   ; Clear selection
+```
+
+**Keybindings:**
+- `←/h` - Previous day
+- `→/l` - Next day
+- `↑/k` - Previous week (same weekday)
+- `↓/j` - Next week (same weekday)
+- `[` / `]` - Previous/next month
+- `{` / `}` - Previous/next year
+- `Home` - Jump to today
+- `Enter/Space` - Select date
+- `Escape` - Clear selection
+
+**Output example:**
+```
+     January 2025
+ Su Mo Tu We Th Fr Sa
+           1  2  3  4
+  5  6  7  8  9 10 11
+ 12 13 14 15 16 17 18
+ 19 20 21 22 23 24 25
+ 26 27 28 29 30 31
+```
+
+**Custom Styling:**
+
+```lisp
+;; Create custom styles
+(defparameter *my-styles*
+  (make-datepicker-styles
+   :header (tui:make-style :bold t :foreground tui:*fg-cyan*)
+   :today (tui:make-style :foreground tui:*fg-green* :bold t)
+   :selected (tui:make-style :reverse t :foreground tui:*fg-yellow*)
+   :cursor (tui:make-style :underline t)
+   :outside-month (tui:make-style :faint t)))
+
+;; Use custom styles
+(make-datepicker :styles *my-styles*)
+```
+
+**Available style slots:**
+| Slot | Default | Purpose |
+|------|---------|---------|
+| `:header` | none | Month/year header |
+| `:day-names` | none | "Su Mo Tu We..." row |
+| `:day` | none | Normal days |
+| `:today` | bold | Today's date |
+| `:selected` | reverse | Selected date |
+| `:cursor` | underline | Cursor position |
+| `:selected-cursor` | bold+reverse | Cursor on selection |
+| `:outside-month` | faint | Days outside month |
+
 ## Component Pattern
 
 All components follow a consistent pattern:
@@ -226,6 +323,7 @@ For convenience, all components have short nicknames:
 - `tui.textinput` = `tuition.components.textinput`
 - `tui.progress` = `tuition.components.progress`
 - `tui.list` = `tuition.components.list`
+- `tui.datepicker` = `tuition.components.datepicker`
 
 ## Design Philosophy
 
