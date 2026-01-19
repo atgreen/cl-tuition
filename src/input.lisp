@@ -158,28 +158,64 @@
            (#\F (progn (%ilog "parse-csi-sequence: -> :end") (make-key-msg :key :end)))
            (#\Z (progn (%ilog "parse-csi-sequence: -> :backtab") (make-key-msg :key :backtab)))))
 
-        ;; Digits: e.g., 3~ for Delete
+        ;; Digits: e.g., 3~ for Delete, or 1;2A for Shift+Up
         ((and ch (digit-char-p ch))
-         (let ((digits (list ch))
-               (term nil)
-               (c nil))
+         (let ((params nil)
+               (current-num (digit-char-p ch))
+               (term nil))
+           ;; Read digits, semicolons, until we hit a terminator
            (loop for c = (read-char stream nil nil)
                  while c
-                 do (if (digit-char-p c)
-                        (push c digits)
-                        (progn
-                          (setf term c)
-                          (return))))
-           (%ilog "parse-csi-sequence: digits='~A' term='~A'" (coerce (nreverse digits) 'string) term)
-           (if (and term (char= term #\~))
-               (let* ((num-str (coerce (nreverse digits) 'string))
-                      (num (ignore-errors (parse-integer num-str))))
-                 (case num
-                   (3 (progn (%ilog "parse-csi-sequence: -> :delete") (make-key-msg :key :delete)))
-                   (200 (progn (%ilog "parse-csi-sequence: bracketed paste start")
-                               (parse-bracketed-paste stream)))
-                   (otherwise (make-key-msg :key :unknown))))
-               (make-key-msg :key :unknown))))
+                 do (cond
+                      ((digit-char-p c)
+                       (setf current-num (+ (* current-num 10) (digit-char-p c))))
+                      ((char= c #\;)
+                       (push current-num params)
+                       (setf current-num 0))
+                      (t
+                       (push current-num params)
+                       (setf term c)
+                       (return))))
+           (setf params (nreverse params))
+           (%ilog "parse-csi-sequence: params=~A term='~A'" params term)
+           (cond
+             ;; Modified arrow keys: ESC[1;NA where N is modifier
+             ;; Modifier: 2=Shift, 3=Alt, 4=Shift+Alt, 5=Ctrl, 6=Shift+Ctrl, 7=Alt+Ctrl, 8=Shift+Alt+Ctrl
+             ((and term (member term '(#\A #\B #\C #\D #\H #\F))
+                   (= (length params) 2)
+                   (= (first params) 1))
+              (let* ((modifier (second params))
+                     (shift (logbitp 0 (1- modifier)))
+                     (alt (logbitp 1 (1- modifier)))
+                     (ctrl (logbitp 2 (1- modifier)))
+                     (base-key (case term
+                                 (#\A :up)
+                                 (#\B :down)
+                                 (#\C :right)
+                                 (#\D :left)
+                                 (#\H :home)
+                                 (#\F :end))))
+                (%ilog "parse-csi-sequence: modified key ~A shift=~A alt=~A ctrl=~A" base-key shift alt ctrl)
+                (make-key-msg :key (if shift
+                                       (case base-key
+                                         (:up :shift-up)
+                                         (:down :shift-down)
+                                         (:left :shift-left)
+                                         (:right :shift-right)
+                                         (:home :shift-home)
+                                         (:end :shift-end)
+                                         (otherwise base-key))
+                                       base-key)
+                              :alt alt :ctrl ctrl)))
+             ;; Special keys with ~ terminator
+             ((and term (char= term #\~))
+              (let ((num (first params)))
+                (case num
+                  (3 (progn (%ilog "parse-csi-sequence: -> :delete") (make-key-msg :key :delete)))
+                  (200 (progn (%ilog "parse-csi-sequence: bracketed paste start")
+                              (parse-bracketed-paste stream)))
+                  (otherwise (make-key-msg :key :unknown)))))
+             (t (make-key-msg :key :unknown)))))
 
         (t
          ;; Consume any remaining chars in the sequence then return unknown
