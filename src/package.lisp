@@ -167,6 +167,13 @@
    #:+top+ #:+middle+ #:+bottom+
    #:+left+ #:+center+ #:+right+
 
+   ;; Overlay compositing
+   #:composite
+   #:overlay-centered
+   #:overlay-at
+   #:ansi-take-columns
+   #:ansi-drop-columns
+
    ;; Borders
    #:border
    #:make-border

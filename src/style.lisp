@@ -362,12 +362,13 @@ compute the final block first, then wrap it with ANSI codes."
       (setf result (car (split-string-by-newline result))))
 
     ;; Pre-wrap: if a width is set, wrap text to (width - horizontal padding)
+    ;; Note: normalize-spaces is nil to preserve intentional spacing in content
     (when (and (not (style-inline style)) (style-width style))
       (let ((wrap-at (- (style-width style)
                         (style-padding-left style)
                         (style-padding-right style))))
         (when (> wrap-at 0)
-          (setf result (wrap-text result wrap-at :break-words nil :normalize-spaces t)))))
+          (setf result (wrap-text result wrap-at :break-words nil :normalize-spaces nil)))))
 
     ;; Apply padding (unless inline)
     (when (and (not (style-inline style))
@@ -413,13 +414,28 @@ compute the final block first, then wrap it with ANSI codes."
         (push (as-background-code (resolve-adaptive-color (style-background style))) codes))
 
       (setf result (if codes
-                       (let ((seq (format nil "~C[~{~A~^;~}m" #\Escape (nreverse codes)))
-                             (rst (ansi-reset))
-                             (lines (split-string-by-newline result)))
+                       (let* ((seq (format nil "~C[~{~A~^;~}m" #\Escape (nreverse codes)))
+                              (rst (ansi-reset))
+                              (rst+seq (concatenate 'string rst seq))
+                              (lines (split-string-by-newline result)))
                          ;; Apply codes per-line: ESC[codes]<line>ESC[0m
+                         ;; Re-apply the outer style after any inner reset so
+                         ;; backgrounds continue across styled child content.
                          (format nil "~{~A~^~%~}"
                                  (mapcar (lambda (line)
-                                           (format nil "~A~A~A" seq line rst))
+                                           (let ((pos 0)
+                                                 (len (length line))
+                                                 (reapplied ""))
+                                             (setf reapplied
+                                                   (with-output-to-string (s)
+                                                     (loop for idx = (search rst line :start2 pos)
+                                                           while idx do
+                                                             (write-string (subseq line pos idx) s)
+                                                             (write-string rst+seq s)
+                                                             (setf pos (+ idx (length rst))))
+                                                     (when (< pos len)
+                                                       (write-string (subseq line pos) s))))
+                                             (format nil "~A~A~A" seq reapplied rst)))
                                          lines)))
                        result)))
 
@@ -564,13 +580,19 @@ Lines added are padded to the current block width so backgrounds render."
 
 (defun split-string-by-newline (str)
   "Split a string by newlines."
-  (let ((result '())
+  (let ((input (or str ""))
+        (result '())
         (start 0))
-    (loop for pos = (position #\Newline str :start start)
+    (flet ((strip-cr (line)
+             (if (and (> (length line) 0)
+                      (char= (char line (1- (length line))) #\Return))
+                 (subseq line 0 (1- (length line)))
+                 line)))
+      (loop for pos = (position #\Newline input :start start)
           while pos
-          do (push (subseq str start pos) result)
+          do (push (strip-cr (subseq input start pos)) result)
              (setf start (1+ pos))
-          finally (push (subseq str start) result))
+          finally (push (strip-cr (subseq input start)) result)))
     (nreverse result)))
 
 (defun %code-in-range-p (code ranges)

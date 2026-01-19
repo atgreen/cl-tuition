@@ -19,6 +19,8 @@
 (defun join-horizontal (position &rest blocks)
   "Join text blocks horizontally at the given vertical position.
    Position can be :top, :middle, :bottom, or a number 0.0-1.0."
+  (when (null blocks)
+    (return-from join-horizontal ""))
   (let* ((block-lines (mapcar #'split-string-by-newline blocks))
          (block-widths (mapcar (lambda (ls)
                                  (if ls (apply #'max (mapcar #'visible-length ls)) 0))
@@ -48,6 +50,8 @@
 (defun join-vertical (position &rest blocks)
   "Join text blocks vertically at the given horizontal position.
    Position can be :left, :center, :right, or a number 0.0-1.0."
+  (when (null blocks)
+    (return-from join-vertical ""))
   (let* ((block-lines (mapcar #'split-string-by-newline blocks))
          (max-width (apply #'max (mapcar (lambda (lines)
                                           (apply #'max (mapcar #'visible-length lines)))
@@ -79,13 +83,26 @@
   "Place text vertically in a space of given height.
    Position can be :top, :middle, :bottom, or a number 0.0-1.0."
   (let* ((lines (split-string-by-newline text))
-         (text-height (length lines))
-         (padding (- height text-height))
-         (offset (calculate-offset position 0 height text-height))
-         (top-padding (make-list offset :initial-element ""))
-         (bottom-padding (make-list (- padding offset) :initial-element "")))
-    (format nil "~{~A~^~%~}"
-            (append top-padding lines bottom-padding))))
+         (text-height (length lines)))
+    (cond
+      ((<= height 0) "")
+      ((<= text-height height)
+       (let* ((padding (- height text-height))
+              (offset (calculate-offset position 0 height text-height))
+              (top-padding (make-list offset :initial-element ""))
+              (bottom-padding (make-list (- padding offset) :initial-element "")))
+         (format nil "~{~A~^~%~}"
+                 (append top-padding lines bottom-padding))))
+      (t
+       (let* ((extra (- text-height height))
+              (pos (if (numberp position) (max 0 (min 1 position)) position))
+              (start (cond
+                       ((or (eq position :top) (eq position :left)) 0)
+                       ((or (eq position :bottom) (eq position :right)) extra)
+                       ((or (eq position :middle) (eq position :center)) (floor extra 2))
+                       ((numberp position) (floor (* extra pos)))
+                       (t 0))))
+         (format nil "~{~A~^~%~}" (subseq lines start (+ start height))))))))
 
 (defun place (width height h-pos v-pos text &key whitespace-char whitespace-fg)
   "Place text in a width x height space at the given positions.
@@ -108,7 +125,9 @@
       ((eq position :left) 0)
       ((eq position :center) (floor space 2))
       ((eq position :right) space)
-      ((numberp position) (floor (* space position)))
+      ((numberp position)
+       (let ((pos (max 0 (min 1 position))))
+         (floor (* space pos))))
       (t 0))))
 
 (defun align-text (text width position &key whitespace-char whitespace-fg)

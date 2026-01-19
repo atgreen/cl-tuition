@@ -19,6 +19,7 @@
                              (:file "style")
                              (:file "borders")
                              (:file "layout")
+                             (:file "overlay")
                              (:file "zone")
                              (:file "terminal")
                              (:file "input")
