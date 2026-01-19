@@ -141,6 +141,12 @@
   #-(or win32 unix)
   (cons 80 24)) ; default fallback
 
+(defun set-terminal-title (title)
+  "Set the terminal window title using OSC escape sequence.
+Works in most modern terminal emulators (xterm, gnome-terminal, iTerm2, etc.)."
+  (format t "~C]0;~A~C" #\Escape title (code-char 7))
+  (force-output))
+
 (defun clear-screen (&optional (stream *standard-output*))
   "Clear the terminal screen."
   (format stream "~C[2J~C[H" #\Escape #\Escape)

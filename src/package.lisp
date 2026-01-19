@@ -228,6 +228,7 @@
 
    ;; Terminal utilities
    #:get-terminal-size
+   #:set-terminal-title
 
    ;; Conditions and error handling
    #:tuition-error
