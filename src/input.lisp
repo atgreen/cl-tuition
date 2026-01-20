@@ -211,7 +211,10 @@
              ((and term (char= term #\~))
               (let ((num (first params)))
                 (case num
+                  (2 (progn (%ilog "parse-csi-sequence: -> :insert") (make-key-msg :key :insert)))
                   (3 (progn (%ilog "parse-csi-sequence: -> :delete") (make-key-msg :key :delete)))
+                  (5 (progn (%ilog "parse-csi-sequence: -> :page-up") (make-key-msg :key :page-up)))
+                  (6 (progn (%ilog "parse-csi-sequence: -> :page-down") (make-key-msg :key :page-down)))
                   (200 (progn (%ilog "parse-csi-sequence: bracketed paste start")
                               (parse-bracketed-paste stream)))
                   (otherwise (make-key-msg :key :unknown)))))
