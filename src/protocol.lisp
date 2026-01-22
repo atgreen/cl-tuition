@@ -97,7 +97,9 @@ DOCUMENTATION sets the class docstring (defaults to a short description)."
 ;; Scroll events
 (defclass mouse-scroll-event (mouse-event)
   ((direction :initarg :direction :reader mouse-scroll-direction
-              :documentation "Scroll direction: :up or :down"))
+              :documentation "Scroll direction: :up or :down")
+   (count :initarg :count :initform 1 :accessor mouse-scroll-count
+          :documentation "Number of scroll events coalesced (for fine control)."))
   (:documentation "Mouse scroll wheel event."))
 
 ;; Legacy mouse-msg for backward compatibility
@@ -280,3 +282,15 @@ DOCUMENTATION sets the class docstring (defaults to a short description)."
     (if fn-supplied-p
         (funcall fn)
         (make-tick-msg))))
+
+;;; Exec command - run an external program with full TUI suspension
+(defstruct (exec-cmd (:constructor make-exec-cmd (program &key args callback)))
+  "Command to run an external program with full TUI suspension.
+   PROGRAM is the executable path/name.
+   ARGS is an optional list of arguments.
+   CALLBACK is an optional function called after the program exits,
+   which should return a message (or nil)."
+  program
+  args
+  callback)
+;; Note: exec-cmd-p is automatically created by defstruct

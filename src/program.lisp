@@ -8,11 +8,19 @@
 
 (in-package #:tuition)
 
+(defvar *current-program* nil
+  "The currently running program, bound during the event loop.")
+
+(defvar *exec-suspended* nil
+  "When T, signal handlers should not send messages (TUI is suspended for exec).")
+
 (defclass program ()
   ((model :initarg :model :accessor program-model)
    (renderer :initform (make-instance 'renderer) :accessor program-renderer)
    (msg-channel :initform (trivial-channels:make-channel) :accessor msg-channel)
    (running :initform nil :accessor program-running)
+   (input-paused :initform nil :accessor program-input-paused
+                 :documentation "When T, the input loop will not read from stdin.")
    (options :initarg :options :initform nil :accessor program-options)
    (tty-stream :initform nil :accessor program-tty-stream)
    (restore-fn :initform nil :accessor program-restore-fn)
@@ -62,7 +70,8 @@ Options (keyword args only):
   (let* ((opts (program-options program))
          (alt (getf opts :alt-screen))
          (mouse (getf opts :mouse))
-         (pool-size (getf opts :pool-size)))
+         (pool-size (getf opts :pool-size))
+         (*current-program* program))
     (with-raw-terminal (:alt-screen alt :mouse mouse)
       (setf (program-running program) t)
 
@@ -84,10 +93,12 @@ Options (keyword args only):
                sb-posix:sigwinch
                (lambda (signal code scp)
                  (declare (ignore signal code scp))
-                 (let* ((size (get-terminal-size))
-                        (width (car size))
-                        (height (cdr size)))
-                   (send program (make-window-size-msg :width width :height height))))))
+                 ;; Ignore resize signals when suspended for exec
+                 (unless *exec-suspended*
+                   (let* ((size (get-terminal-size))
+                          (width (car size))
+                          (height (cdr size)))
+                     (send program (make-window-size-msg :width width :height height)))))))
 
         ;; SIGTSTP - suspend (Ctrl+Z)
         (setf old-sigtstp-handler
@@ -179,46 +190,94 @@ Options (keyword args only):
 ;; Terminal setup/cleanup handled by WITH-RAW-TERMINAL
 
 (defun event-loop (program)
-  "Main event processing loop."
+  "Main event processing loop with batched message processing."
   (loop while (program-running program) do
     (handler-case
-        (let ((msg (trivial-channels:getmsg (msg-channel program))))
-          (when msg
-            (handle-message program msg))
-          (unless msg
-            (sleep 0.01))) ; Small sleep if no messages
+        ;; Block on condition variable until message arrives (with timeout to check running flag)
+        (let ((first-msg (trivial-channels:recvmsg (msg-channel program) 0.1)))
+          (when first-msg
+            ;; Got a message - drain all pending and process as batch
+            (let ((messages (list first-msg)))
+              ;; Collect all immediately available messages
+              (loop for msg = (trivial-channels:getmsg (msg-channel program))
+                    while msg
+                    do (push msg messages))
+              (setf messages (nreverse messages))
+              ;; Process batch
+              (handle-messages-batch program messages))))
       (error (e)
         (handle-error :event-loop e)))))
 
-(defun handle-message (program msg)
-  "Process a message through the update function."
-  (cond
-    ;; Quit message
-    ((quit-msg-p msg)
-     (setf (program-running program) nil))
+(defun coalesce-scroll-events (messages)
+  "Combine consecutive scroll events in the same direction into one.
+   The count slot accumulates how many events were combined.
+   Returns the coalesced message list."
+  (when (null messages)
+    (return-from coalesce-scroll-events nil))
+  (let ((result nil)
+        (prev-scroll nil))  ; The scroll event we're accumulating into
+    (dolist (msg messages)
+      (cond
+        ;; Scroll event
+        ((mouse-scroll-event-p msg)
+         (let ((dir (mouse-scroll-direction msg)))
+           (if (and prev-scroll (eq dir (mouse-scroll-direction prev-scroll)))
+               ;; Same direction as previous - increment count
+               (incf (mouse-scroll-count prev-scroll))
+               ;; New direction or first scroll - start new accumulator
+               (progn
+                 (push msg result)
+                 (setf prev-scroll msg)))))
+        ;; Non-scroll event breaks the scroll sequence
+        (t
+         (push msg result)
+         (setf prev-scroll nil))))
+    (nreverse result)))
 
-    ;; All other messages
-    (t
-     (multiple-value-bind (new-model cmd)
-         (update (program-model program) msg)
-       (setf (program-model program) new-model)
+(defun handle-messages-batch (program messages)
+  "Process multiple messages, rendering only once at the end."
+  ;; Coalesce scroll events to avoid jumping multiple rows per wheel click
+  (let ((messages (coalesce-scroll-events messages))
+        (should-render nil)
+        (pending-cmds nil))
+    (dolist (msg messages)
+      (cond
+        ;; Quit message - stop immediately
+        ((quit-msg-p msg)
+         (setf (program-running program) nil)
+         (return-from handle-messages-batch))
 
-       ;; Run command if returned
-       (when cmd
-         (run-command program cmd))
+        ;; All other messages
+        (t
+         (multiple-value-bind (new-model cmd)
+             (update (program-model program) msg)
+           (setf (program-model program) new-model)
+           (setf should-render t)
+           (when cmd
+             (push cmd pending-cmds))))))
 
-       ;; Re-render
-       (render (program-renderer program)
-               (view new-model))))))
+    ;; Run all accumulated commands
+    (dolist (cmd (nreverse pending-cmds))
+      (run-command program cmd))
+
+    ;; Render once after all messages processed
+    (when should-render
+      (render (program-renderer program)
+              (view (program-model program))))))
 
 (defun run-command (program cmd)
   "Execute a command.
 
   If thread pool is enabled and available, submits the command to the pool.
-  Otherwise, spawns a new thread for each command (original behavior)."
+  Otherwise, spawns a new thread for each command (original behavior).
+  exec-cmd is handled specially with full TUI suspension."
   (cond
     ;; Nil command - do nothing
     ((null cmd) nil)
+
+    ;; Exec command - run external program with full TUI suspension
+    ((exec-cmd-p cmd)
+     (run-exec-command program cmd))
 
     ;; Batch commands
     ((listp cmd)
@@ -247,6 +306,49 @@ Options (keyword args only):
     ;; Unknown command type
     (t nil)))
 
+(defun run-exec-command (program cmd)
+  "Run an external program with full TUI suspension.
+   Pauses input, suspends signal handling, suspends terminal,
+   runs the program, then restores everything."
+  (let* ((opts (program-options program))
+         (alt (getf opts :alt-screen))
+         (mouse (getf opts :mouse))
+         (exec-program (exec-cmd-program cmd))
+         (exec-args (exec-cmd-args cmd))
+         (callback (exec-cmd-callback cmd)))
+    ;; Pause input reading
+    (setf (program-input-paused program) t)
+    ;; Mark as suspended (prevents signal handlers from sending messages)
+    (setf *exec-suspended* t)
+    ;; Suspend terminal (exit alt screen, restore cooked mode, etc.)
+    (let ((restore-fn (suspend-terminal :alt-screen alt :mouse mouse)))
+      (unwind-protect
+          (handler-case
+              ;; Run the external program
+              (uiop:run-program (cons exec-program exec-args)
+                                :input :interactive
+                                :output :interactive
+                                :error-output :interactive)
+            (error (e)
+              (handle-error :exec-command e)))
+        ;; Always restore terminal state
+        (when restore-fn
+          (resume-terminal restore-fn))
+        ;; Clear suspended flag
+        (setf *exec-suspended* nil)
+        ;; Resume input reading
+        (setf (program-input-paused program) nil)
+        ;; Send a window size message to trigger redraw with correct size
+        (let* ((size (get-terminal-size))
+               (width (car size))
+               (height (cdr size)))
+          (send program (make-window-size-msg :width width :height height)))
+        ;; Call callback if provided
+        (when callback
+          (let ((msg (funcall callback)))
+            (when msg
+              (send program msg))))))))
+
 
 (defun run-batch (program cmds)
   "Run multiple commands concurrently."
@@ -265,8 +367,26 @@ Options (keyword args only):
              (send program msg))))))
    :name "tuition-sequence"))
 
+(defun read-all-available-events ()
+  "Read all available input events and return them as a list.
+   Returns nil if no input is available."
+  (let ((events nil))
+    (loop for msg = (read-key)
+          while msg
+          do (push msg events))
+    (nreverse events)))
+
+(defun send-batch (program msgs)
+  "Send multiple messages to ensure proper batching."
+  (when (and (program-running program) msgs)
+    (let ((channel (msg-channel program)))
+      (dolist (msg msgs)
+        (trivial-channels:sendmsg channel msg)))))
+
 (defun input-loop (program)
-  "Read input and send input messages (key/mouse/paste) to the program."
+  "Read input and send input messages (key/mouse/paste) to the program.
+   Reads ALL available events and sends them atomically to ensure proper batching.
+   When program-input-paused is T, input reading is suspended."
   ;; Set the input stream for this thread
   (setf *input-stream* (program-tty-stream program))
   ;; Suppress SBCL warnings about I/O operations in this thread (Unix only)
@@ -275,60 +395,36 @@ Options (keyword args only):
     (handler-case
         (loop while (program-running program) do
           (handler-case
-              (let ((msg (read-key)))
-                (when msg
-                  ;; Log by message type to avoid calling key accessors on mouse msgs
-                  (cond
-                    ((key-msg-p msg)
-                     (%ilog "input-loop: dispatch key key=~A alt=~A ctrl=~A"
-                            (key-msg-key msg)
-                            (key-msg-alt msg)
-                            (key-msg-ctrl msg)))
-                    ((mouse-msg-p msg)
-                     (%ilog "input-loop: dispatch mouse x=~A y=~A button=~A action=~A"
-                            (mouse-msg-x msg)
-                            (mouse-msg-y msg)
-                            (mouse-msg-button msg)
-                            (mouse-msg-action msg)))
-                    ((paste-msg-p msg)
-                     (%ilog "input-loop: dispatch paste chars=~A"
-                            (length (paste-msg-text msg))))
-                    (t
-                     (%ilog "input-loop: dispatch msg ~S" msg)))
-                  (send program msg)))
+              (if (program-input-paused program)
+                  ;; When paused, just sleep and don't read input
+                  (sleep 0.05)
+                  ;; Normal input reading
+                  (let ((events (read-all-available-events)))
+                    (if events
+                        (progn
+                          (%ilog "input-loop: batch of ~D events" (length events))
+                          (send-batch program events))
+                        ;; Only sleep when no input available (prevent busy-waiting)
+                        (sleep 0.001))))
             (error (e)
-              (handle-error :input-loop e)))
-          (sleep 0.01)) ; Small delay to prevent busy-waiting
+              (handle-error :input-loop e))))
       (error (e)
         (handle-error :input-loop e))))
   #-(and sbcl (not windows))
   (handler-case
       (loop while (program-running program) do
         (handler-case
-            (let ((msg (read-key)))
-              (when msg
-                ;; Log by message type to avoid calling key accessors on mouse msgs
-                (cond
-                  ((key-msg-p msg)
-                   (%ilog "input-loop: dispatch key key=~A alt=~A ctrl=~A"
-                          (key-msg-key msg)
-                          (key-msg-alt msg)
-                          (key-msg-ctrl msg)))
-                  ((mouse-msg-p msg)
-                   (%ilog "input-loop: dispatch mouse x=~A y=~A button=~A action=~A"
-                          (mouse-msg-x msg)
-                          (mouse-msg-y msg)
-                          (mouse-msg-button msg)
-                          (mouse-msg-action msg)))
-                  ((paste-msg-p msg)
-                   (%ilog "input-loop: dispatch paste chars=~A"
-                          (length (paste-msg-text msg))))
-                  (t
-                   (%ilog "input-loop: dispatch msg ~S" msg)))
-                (send program msg)))
+            (if (program-input-paused program)
+                (sleep 0.05)
+                (let ((events (read-all-available-events)))
+                  (if events
+                      (progn
+                        (%ilog "input-loop: batch of ~D events" (length events))
+                        (send-batch program events))
+                      ;; Only sleep when no input available (prevent busy-waiting)
+                      (sleep 0.001))))
           (error (e)
-            (handle-error :input-loop e)))
-        (sleep 0.01)) ; Small delay to prevent busy-waiting
+            (handle-error :input-loop e))))
     (error (e)
       (handle-error :input-loop e))))
 

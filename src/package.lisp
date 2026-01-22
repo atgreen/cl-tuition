@@ -35,6 +35,16 @@
    #:join
    #:with-raw-terminal
    #:defprogram
+   #:program-input-paused
+   #:*current-program*
+
+   ;; Exec command (run external program with full TUI suspension)
+   #:exec-cmd
+   #:make-exec-cmd
+   #:exec-cmd-p
+   #:exec-cmd-program
+   #:exec-cmd-args
+   #:exec-cmd-callback
 
    ;; Built-in messages
    #:quit-msg
@@ -91,6 +101,7 @@
    #:mouse-scroll-event
    #:mouse-scroll-event-p
    #:mouse-scroll-direction
+   #:mouse-scroll-count
    #:make-mouse-scroll-event
    #:tick-msg
    #:tick-msg-p
