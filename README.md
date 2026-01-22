@@ -36,7 +36,10 @@ Tuition handles terminal concerns for you (raw mode, alternate screen, input dec
 
 - TEA-style architecture with CLOS: message-specialized `tui:update-message`
 - Concurrent commands for non-blocking I/O and timers
+- **External program execution** with full TUI suspension (exec-cmd)
 - Keyboard and mouse input decoding (with modifiers and motion)
+- **Batched input processing** for improved performance under rapid input
+- **Scroll event coalescing** to prevent jumpy scrolling
 - Terminal control (raw mode, alternate screen, cursor, clear)
 - Styling utilities (bold/italic/underline/colors, adaptive colors)
 - Layout helpers (horizontal/vertical joins, placement and alignment)
@@ -214,6 +217,48 @@ Commands are functions that return messages asynchronously.
   :mouse :cell-motion)     ; :cell-motion | :all-motion | NIL
 ```
 
+### Running External Programs (exec-cmd)
+
+When your TUI application needs to shell out to an external program (like an editor), use `tui:exec-cmd` for proper terminal suspension. This ensures:
+
+- Input reading is paused (keystrokes go to the subprocess, not your app)
+- Signal handlers are suspended (terminal resize won't trigger redraws)
+- Terminal mode is properly restored (alt-screen, raw mode, mouse tracking)
+- A redraw is triggered after the program exits
+
+```lisp
+;; Simple: run an editor on a file
+(tui:make-exec-cmd "vim" :args (list "/tmp/myfile.txt"))
+
+;; With callback: process results after the program exits
+(tui:make-exec-cmd "vim"
+  :args (list temp-file)
+  :callback (lambda ()
+              ;; Called after vim exits - read the file and return a message
+              (let ((content (uiop:read-file-string temp-file)))
+                (make-instance 'editor-done-msg :content content))))
+```
+
+The exec-cmd is returned from your update function like any other command:
+
+```lisp
+(defmethod tui:update-message ((model my-app) (msg edit-request))
+  (values model (tui:make-exec-cmd "nano" :args (list (file-path msg)))))
+```
+
+### Accessing the Current Program
+
+The special variable `tui:*current-program*` is bound to the running program during the event loop. This is useful for advanced scenarios where you need direct access to the program object.
+
+```lisp
+;; Check if a program is running
+(when tui:*current-program*
+  (format t "Program is running~%"))
+
+;; Pause input reading temporarily (used internally by exec-cmd)
+(setf (tui:program-input-paused tui:*current-program*) t)
+```
+
 ## Terminal lifecycle
 
 Use `tui:with-raw-terminal` when you want terminal control outside the main program loop. It ensures proper cleanup and offers restarts to recover from setup issues.
@@ -314,7 +359,9 @@ Enable mouse reporting via `:mouse` in `tui:make-program` (see Program Options) 
 
 (defmethod tui:update-message ((model my-app) (msg tui:mouse-scroll-event))
   ;; Handle scroll wheel
-  (let ((direction (tui:mouse-scroll-direction msg)))  ; :up or :down
+  (let ((direction (tui:mouse-scroll-direction msg))  ; :up or :down
+        (count (tui:mouse-scroll-count msg)))         ; coalesced event count
+    ;; count > 1 when multiple scroll events were combined
     (values model nil)))
 
 ;; All mouse events support modifier flags
