@@ -377,9 +377,11 @@ Options (keyword args only):
     (nreverse events)))
 
 (defun send-batch (program msgs)
-  "Send multiple messages atomically to ensure proper batching."
+  "Send multiple messages to ensure proper batching."
   (when (and (program-running program) msgs)
-    (trivial-channels:sendmsgs (msg-channel program) msgs)))
+    (let ((channel (msg-channel program)))
+      (dolist (msg msgs)
+        (trivial-channels:sendmsg channel msg)))))
 
 (defun input-loop (program)
   "Read input and send input messages (key/mouse/paste) to the program.
