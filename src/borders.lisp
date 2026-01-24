@@ -103,9 +103,12 @@
 
 (defun render-border (text border &key
                              (top t) (bottom t) (left t) (right t)
-                             fg-color bg-color)
+                             fg-color bg-color
+                             title (title-position :center))
   "Render text with a border around it.
-   Colors are applied per-border-character to avoid being cleared by content resets."
+   Colors are applied per-border-character to avoid being cleared by content resets.
+   TITLE, if provided, is placed on the top border line.
+   TITLE-POSITION is :LEFT, :CENTER, or :RIGHT (default :CENTER)."
   (let* ((lines (split-string-by-newline text))
          (max-width (apply #'max (mapcar #'visible-length lines)))
          (result nil)
@@ -117,11 +120,33 @@
 
     ;; Top border
     (when top
-      (let ((top-line (format nil "~A~A~A"
-                             (if left (border-top-left border) "")
-                             (make-string max-width :initial-element
-                                         (char (border-top border) 0))
-                             (if right (border-top-right border) ""))))
+      (let ((top-line
+              (if title
+                  ;; Build top border with title embedded
+                  (let* ((title-vis-len (visible-length title))
+                         (available (- max-width 2)) ; at least 1 border char each side
+                         (truncated-title (if (> title-vis-len available)
+                                              (serapeum:take (min (length title) available) title)
+                                              title))
+                         (t-len (visible-length truncated-title))
+                         (border-char (char (border-top border) 0))
+                         (left-pad (case title-position
+                                     (:left 1)
+                                     (:right (max 1 (- max-width t-len 1)))
+                                     (otherwise (max 1 (floor (- max-width t-len) 2)))))
+                         (right-pad (max 1 (- max-width t-len left-pad))))
+                    (format nil "~A~A~A~A~A"
+                            (if left (border-top-left border) "")
+                            (make-string left-pad :initial-element border-char)
+                            truncated-title
+                            (make-string right-pad :initial-element border-char)
+                            (if right (border-top-right border) "")))
+                  ;; Normal top border without title
+                  (format nil "~A~A~A"
+                          (if left (border-top-left border) "")
+                          (make-string max-width :initial-element
+                                       (char (border-top border) 0))
+                          (if right (border-top-right border) "")))))
         (push (funcall color-border top-line) result)))
 
     ;; Content with left/right borders
@@ -171,3 +196,52 @@
                  :middle (or middle "┼")
                  :middle-top (or middle-top "┬")
                  :middle-bottom (or middle-bottom "┴")))
+
+;;; Shadow rendering
+
+(defun shadow-chars (style)
+  "Return (right-char . bottom-char) for the given shadow style keyword."
+  (case style
+    (:solid  (cons "█" "█"))
+    (:light  (cons "░" "░"))
+    (:medium (cons "▒" "▒"))
+    (:heavy  (cons "▓" "▓"))
+    (otherwise (cons "█" "▀")))) ; :dark default
+
+(defun render-shadow (text &key (width 2) (offset 1)
+                                (color *fg-bright-black*) (style :dark))
+  "Add a drop shadow (right + bottom) to a text block.
+   WIDTH is the shadow thickness in characters (default 2).
+   OFFSET is the rows/cols skipped from the top-left before the shadow starts (default 1).
+   COLOR is the shadow color (default bright-black/dark gray).
+   STYLE is a shadow character preset: :DARK, :SOLID, :LIGHT, :MEDIUM, or :HEAVY."
+  (let* ((chars (shadow-chars style))
+         (right-char (first chars))
+         (bottom-char (rest chars))
+         (lines (split-string-by-newline text))
+         (num-lines (length lines))
+         (max-width (if lines
+                        (apply #'max (mapcar #'visible-length lines))
+                        0))
+         (shadow-str (colored (make-string width :initial-element
+                                           (char right-char 0))
+                              :fg color))
+         (pad-str (make-string width :initial-element #\Space))
+         (result nil))
+    ;; Process each content line, appending right shadow where applicable
+    (loop for line in lines
+          for i from 0
+          do (if (>= i offset)
+                 ;; This line gets a shadow on the right
+                 (push (format nil "~A~A" line shadow-str) result)
+                 ;; Lines before offset get padding to maintain alignment
+                 (push (format nil "~A~A" line pad-str) result)))
+    ;; Bottom shadow row
+    (let* ((bottom-width (+ max-width width (- offset)))
+           (bottom-str (colored (make-string (max 0 bottom-width)
+                                             :initial-element
+                                             (char bottom-char 0))
+                                :fg color))
+           (leading-spaces (make-string offset :initial-element #\Space)))
+      (push (format nil "~A~A" leading-spaces bottom-str) result))
+    (format nil "~{~A~^~%~}" (nreverse result))))
