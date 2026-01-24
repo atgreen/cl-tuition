@@ -189,6 +189,109 @@
     (format t "Using overlay-at (10, 3):~%")
     (format t "~A~%~%" (tui:overlay-at dialog bg 10 3))))
 
+;;; Demo 6: Title bar on borders
+(defun demo-title ()
+  "Demonstrate title support in render-border."
+  (format t "~%=== Demo 6: Border Titles ===~%~%")
+
+  (let* ((content (tui:render-styled
+                   (tui:make-style :foreground tui:*fg-white*
+                                   :padding 1
+                                   :width 30)
+                   "This dialog has a title bar on the top border."))
+         (title (tui:colored " Confirm " :fg tui:*fg-bright-yellow*))
+         (dialog (tui:render-border content tui:*border-rounded*
+                                    :fg-color tui:*fg-bright-white*
+                                    :title title
+                                    :title-position :center)))
+    (format t "Centered title:~%")
+    (format t "~A~%~%" dialog))
+
+  (let* ((content (tui:render-styled
+                   (tui:make-style :foreground tui:*fg-white*
+                                   :padding 1
+                                   :width 30)
+                   "Left-aligned title example."))
+         (title (tui:colored " Info " :fg tui:*fg-bright-cyan*))
+         (dialog (tui:render-border content tui:*border-normal*
+                                    :fg-color tui:*fg-cyan*
+                                    :title title
+                                    :title-position :left)))
+    (format t "Left title:~%")
+    (format t "~A~%~%" dialog)))
+
+;;; Demo 7: Drop shadows
+(defun demo-shadows ()
+  "Demonstrate drop shadows on dialogs and buttons."
+  (format t "~%=== Demo 7: Drop Shadows ===~%~%")
+
+  ;; Dialog with transparent shadow on a background
+  (let* ((bg (build-list-background 50 14))
+         (content (tui:render-styled
+                   (tui:make-style :foreground tui:*fg-white*
+                                   :background tui:*bg-blue*
+                                   :padding 1
+                                   :width 28)
+                   "A dialog box with a transparent drop shadow."))
+         (title (tui:colored " Dialog " :fg tui:*fg-bright-yellow*))
+         (dialog (tui:render-border content tui:*border-double*
+                                    :fg-color tui:*fg-bright-white*
+                                    :bg-color tui:*bg-blue*
+                                    :title title))
+         (result (tui:composite-with-shadow dialog bg
+                                            :x-position 4
+                                            :y-position 2)))
+    (format t "Transparent shadow (background text shows through):~%")
+    (format t "~A~%~%" result))
+
+  ;; Opaque shadow style for comparison
+  (let* ((content (tui:render-styled
+                   (tui:make-style :foreground tui:*fg-white*
+                                   :background tui:*bg-blue*
+                                   :padding 1
+                                   :width 28)
+                   "Same dialog with an opaque block shadow."))
+         (title (tui:colored " Dialog " :fg tui:*fg-bright-yellow*))
+         (bordered (tui:render-border content tui:*border-double*
+                                      :fg-color tui:*fg-bright-white*
+                                      :bg-color tui:*bg-blue*
+                                      :title title))
+         (shadowed (tui:render-shadow bordered)))
+    (format t "Opaque shadow (style :dark):~%")
+    (format t "~A~%~%" shadowed))
+
+  ;; Buttons with transparent shadows on a background
+  (let* ((bg (tui:render-styled
+              (tui:make-style :background tui:*bg-bright-black*
+                              :width 40
+                              :height 4)
+              (format nil "  Button bar area~%  with background text~%  that shows through")))
+         (ok-btn (tui:render-styled
+                  (tui:make-style :foreground tui:*fg-black*
+                                  :background tui:*bg-bright-green*
+                                  :padding-left 2
+                                  :padding-right 2)
+                  "  OK  "))
+         (cancel-btn (tui:render-styled
+                      (tui:make-style :foreground tui:*fg-white*
+                                      :background tui:*bg-red*
+                                      :padding-left 2
+                                      :padding-right 2)
+                      "Cancel"))
+         ;; Composite buttons with transparent shadows onto background
+         (with-ok (tui:composite-with-shadow ok-btn bg
+                                             :x-position 3
+                                             :y-position 1
+                                             :shadow-width 1
+                                             :shadow-offset 0))
+         (result (tui:composite-with-shadow cancel-btn with-ok
+                                            :x-position 18
+                                            :y-position 1
+                                            :shadow-width 1
+                                            :shadow-offset 0)))
+    (format t "Buttons with transparent shadows:~%")
+    (format t "~A~%~%" result)))
+
 ;;; Main function
 (defun main ()
   "Run all overlay demos."
@@ -204,6 +307,8 @@
   (demo-corners)
   (demo-absolute)
   (demo-convenience)
+  (demo-title)
+  (demo-shadows)
 
   (format t "========================================~%")
   (format t "              Demo Complete~%")

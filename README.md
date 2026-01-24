@@ -43,7 +43,8 @@ Tuition handles terminal concerns for you (raw mode, alternate screen, input dec
 - Terminal control (raw mode, alternate screen, cursor, clear)
 - Styling utilities (bold/italic/underline/colors, adaptive colors)
 - Layout helpers (horizontal/vertical joins, placement and alignment)
-- Borders (normal, rounded, thick, double, block, ASCII, markdown)
+- Borders (normal, rounded, thick, double, block, ASCII, markdown) with title bars and drop shadows
+- Overlay compositing with transparent shadow effects
 - Reflow helpers (wrapping, truncation, ellipsizing, indentation)
 - Built-in components: spinner, progress bar, list, table, text input
 - Zones for advanced mouse interactions (define and query named regions)
@@ -306,13 +307,29 @@ Layout helpers let you arrange blocks of text without calculating offsets by han
 (tui:place 40 10 tui:+center+ tui:+middle+ "Centered block")
 ```
 
-### Borders
+### Borders, titles, and shadows
 
-Borders provide quick framing for panels, tables, and dialogs. Pick from several predefined styles (rounded, thick, double, ASCII, markdown) to match the tone of your UI, or render with plain blocks for a minimal look.
+Borders provide quick framing for panels, tables, and dialogs. Pick from several predefined styles (rounded, thick, double, ASCII, markdown) to match the tone of your UI. Add title bars and drop shadows for dialog-style depth.
 
 ```lisp
-(tui:render-border (tui:make-border :style tui:*border-rounded*) "Panel")
+;; Basic border
+(tui:render-border content tui:*border-rounded*)
+
+;; Border with a styled title on the top edge
+(tui:render-border content tui:*border-double*
+                   :title (tui:colored " Confirm " :fg tui:*fg-bright-yellow*)
+                   :title-position :center)
+
+;; Opaque block shadow (standalone)
+(tui:render-shadow bordered-dialog)
+
+;; Transparent shadow compositing (background text shows through)
+(tui:composite-with-shadow dialog background
+                           :x-position tui:+center+
+                           :y-position tui:+middle+)
 ```
+
+See `doc/BORDERS.md` for the full API reference.
 
 ## Reflow utilities
 

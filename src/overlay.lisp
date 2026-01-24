@@ -330,3 +330,119 @@ Shorthand for (composite foreground background :x-position +center+ :y-position 
   "Composite FOREGROUND on BACKGROUND at absolute position (X, Y).
 X is the column (0 = left edge), Y is the row (0 = top edge)."
   (composite foreground background :x-position x :y-position y))
+
+;;; Transparent shadow compositing
+
+(defun %strip-ansi (str)
+  "Remove all ANSI escape sequences from STR, returning only visible characters."
+  (when (or (null str) (zerop (length str)))
+    (return-from %strip-ansi ""))
+  (let ((result (make-array 0 :element-type 'character :adjustable t :fill-pointer 0))
+        (i 0)
+        (len (length str)))
+    (loop while (< i len) do
+      (let ((char (char str i)))
+        (cond
+          ((char= char #\Escape)
+           (incf i)
+           (when (and (< i len) (char= (char str i) #\[))
+             (incf i)
+             (loop while (< i len) do
+               (let ((code (char-code (char str i))))
+                 (incf i)
+                 (when (and (>= code #x40) (<= code #x7E))
+                   (return))))))
+          (t
+           (vector-push-extend char result)
+           (incf i)))))
+    (coerce result 'string)))
+
+(defun %darken-line-segment (line start-col end-col color bg-color)
+  "Darken columns START-COL to END-COL in LINE by stripping styling and applying COLOR/BG-COLOR.
+Returns the full line with the darkened segment spliced in.
+Restores the line's original background color after the darkened segment."
+  (let* ((line-width (visible-length line))
+         (actual-start (max 0 (min start-col line-width)))
+         (actual-end (max actual-start (min end-col line-width))))
+    (when (= actual-start actual-end)
+      (return-from %darken-line-segment line))
+    (let* ((left (if (> actual-start 0)
+                     (ansi-take-columns line actual-start)
+                     ""))
+           (mid-raw (%strip-ansi
+                     (ansi-take-columns (ansi-drop-columns line actual-start)
+                                        (- actual-end actual-start))))
+           (mid-colored (colored mid-raw :fg color :bg bg-color))
+           (right (if (< actual-end line-width)
+                      (ansi-drop-columns line actual-end)
+                      ""))
+           ;; Restore the line's background color after the shadow reset
+           (restore-bg (if (> (length right) 0)
+                           (%extract-background-sgr line)
+                           "")))
+      (concatenate 'string left mid-colored restore-bg right))))
+
+(defun composite-with-shadow (foreground background
+                              &key (x-position +center+) (y-position +middle+)
+                                   (x-offset 0) (y-offset 0)
+                                   (shadow-width 2) (shadow-offset 1)
+                                   (shadow-color *fg-bright-black*)
+                                   (shadow-bg-color *bg-black*))
+  "Composite FOREGROUND onto BACKGROUND with a transparent drop shadow.
+The shadow darkens the background characters rather than covering them,
+so the underlying content remains partially visible.
+
+SHADOW-WIDTH is the shadow thickness in characters (default 2).
+SHADOW-OFFSET is the row/col offset before the shadow starts (default 1).
+SHADOW-COLOR is the foreground color applied to darkened characters (default bright-black).
+SHADOW-BG-COLOR is the background color applied to the shadow region (default black)."
+  (when (or (null background) (zerop (length background)))
+    (return-from composite-with-shadow (or foreground "")))
+  (when (or (null foreground) (zerop (length foreground)))
+    (return-from composite-with-shadow background))
+
+  (let* ((fg-lines (split-string-by-newline foreground))
+         (bg-lines (split-string-by-newline background))
+         (fg-height (length fg-lines))
+         (bg-height (length bg-lines))
+         (fg-width (if fg-lines (apply #'max (mapcar #'visible-length fg-lines)) 0))
+         (bg-width (if bg-lines (apply #'max (mapcar #'visible-length bg-lines)) 0)))
+
+    (when (or (zerop fg-height) (zerop fg-width))
+      (return-from composite-with-shadow background))
+
+    ;; Calculate foreground position (same as composite)
+    (let* ((base-x (%calculate-position x-position bg-width fg-width))
+           (base-y (%calculate-position y-position bg-height fg-height))
+           (fx (+ base-x x-offset))
+           (fy (+ base-y y-offset))
+           ;; Shadow region: right edge and bottom edge offset from foreground
+           (shadow-right-x (+ fx fg-width))
+           (shadow-right-y-start (+ fy shadow-offset))
+           (shadow-right-y-end (+ fy fg-height))
+           (shadow-bottom-x-start (+ fx shadow-offset))
+           (shadow-bottom-x-end (+ fx fg-width shadow-width))
+           (shadow-bottom-y (+ fy fg-height)))
+
+      ;; Darken the background in the shadow regions
+      (let ((darkened-bg-lines (copy-list bg-lines)))
+        ;; Right edge shadow
+        (loop for row from shadow-right-y-start below (min shadow-right-y-end bg-height)
+              when (and (>= row 0) (< row bg-height))
+              do (setf (nth row darkened-bg-lines)
+                       (%darken-line-segment (nth row darkened-bg-lines)
+                                             shadow-right-x
+                                             (+ shadow-right-x shadow-width)
+                                             shadow-color shadow-bg-color)))
+        ;; Bottom edge shadow
+        (when (and (>= shadow-bottom-y 0) (< shadow-bottom-y bg-height))
+          (setf (nth shadow-bottom-y darkened-bg-lines)
+                (%darken-line-segment (nth shadow-bottom-y darkened-bg-lines)
+                                      shadow-bottom-x-start
+                                      shadow-bottom-x-end
+                                      shadow-color shadow-bg-color)))
+
+        ;; Now composite the foreground on top of the darkened background
+        (composite foreground
+                   (format nil "~{~A~^~%~}" darkened-bg-lines)
+                   :x-position fx :y-position fy)))))

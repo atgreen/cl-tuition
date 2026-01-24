@@ -180,6 +180,7 @@
 
    ;; Overlay compositing
    #:composite
+   #:composite-with-shadow
    #:overlay-centered
    #:overlay-at
    #:ansi-take-columns
@@ -189,6 +190,7 @@
    #:border
    #:make-border
    #:render-border
+   #:render-shadow
    #:*border-normal*
    #:*border-rounded*
    #:*border-thick*
