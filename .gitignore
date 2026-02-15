@@ -19,6 +19,7 @@
 test-load.lisp
 *~
 ocicl/
+ocicl.csv
 ENHANCEMENTS.md
 lisp/
 PROGRESS.md
