@@ -31,7 +31,8 @@ jobs:
           ocicl setup > ~/.sbclrc
 
       - name: Fetch Lisp dependencies
-        run: ocicl install
+        run: |
+          ocicl install bordeaux-threads trivial-channels version-string alexandria serapeum
 
       - name: Upload ocicl directory
         uses: actions/upload-artifact@v4
