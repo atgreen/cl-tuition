@@ -18,13 +18,14 @@
 
 #+(and sbcl unix)
 (defun stream-fd (stream)
-  "Get the file descriptor for a stream."
-  (let ((stream (typecase stream
-                  (synonym-stream (symbol-value (synonym-stream-symbol stream)))
-                  (two-way-stream (two-way-stream-input-stream stream))
-                  (sb-sys:fd-stream stream)
-                  (otherwise stream))))
-    (sb-posix:file-descriptor stream)))
+  "Get the file descriptor for a stream.
+   Recursively unwraps synonym-streams and two-way-streams."
+  (loop
+    (typecase stream
+      (sb-sys:fd-stream (return (sb-posix:file-descriptor stream)))
+      (synonym-stream (setf stream (symbol-value (synonym-stream-symbol stream))))
+      (two-way-stream (setf stream (two-way-stream-input-stream stream)))
+      (otherwise (return (sb-posix:file-descriptor stream))))))
 
 (defun enter-raw-mode ()
   "Put the terminal in raw mode for TUI applications."
