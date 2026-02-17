@@ -17,15 +17,16 @@
   "Stores the terminal state before entering raw mode.")
 
 #+(and sbcl unix)
-(defun stream-fd (stream)
-  "Get the file descriptor for a stream.
-   Recursively unwraps synonym-streams and two-way-streams."
-  (loop
-    (typecase stream
-      (sb-sys:fd-stream (return (sb-posix:file-descriptor stream)))
-      (synonym-stream (setf stream (symbol-value (synonym-stream-symbol stream))))
-      (two-way-stream (setf stream (two-way-stream-input-stream stream)))
-      (otherwise (return (sb-posix:file-descriptor stream))))))
+(defvar *tty-fd* nil
+  "File descriptor for /dev/tty, used for termios operations.")
+
+#+(and sbcl unix)
+(defun get-tty-fd ()
+  "Get a file descriptor for the controlling terminal.
+   Opens /dev/tty directly so termios works even when stdio are pipes
+   (e.g. inside icl or other REPL wrappers)."
+  (or *tty-fd*
+      (setf *tty-fd* (sb-posix:open "/dev/tty" sb-posix:o-rdwr))))
 
 (defun enter-raw-mode ()
   "Put the terminal in raw mode for TUI applications."
@@ -36,7 +37,7 @@
       (error (make-condition 'terminal-operation-error :operation :enter-raw-mode :reason c))))
   #+(and sbcl unix)
   (handler-case
-      (let* ((fd (stream-fd *terminal-io*))
+      (let* ((fd (get-tty-fd))
              (termios (sb-posix:tcgetattr fd)))
         ;; Save original state
         (unless *original-termios*
@@ -112,9 +113,12 @@
   #+(and sbcl unix)
   (handler-case
       (when *original-termios*
-        (let ((fd (stream-fd *terminal-io*)))
+        (let ((fd (get-tty-fd)))
           (sb-posix:tcsetattr fd sb-posix:tcsanow *original-termios*)
-          (setf *original-termios* nil)))
+          (setf *original-termios* nil)
+          (when *tty-fd*
+            (sb-posix:close *tty-fd*)
+            (setf *tty-fd* nil))))
     (error (c)
       (error (make-condition 'terminal-operation-error :operation :exit-raw-mode :reason c))))
   #-(or win32 (and sbcl unix))
