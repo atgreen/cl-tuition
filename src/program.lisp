@@ -71,7 +71,10 @@ Options (keyword args only):
          (alt (getf opts :alt-screen))
          (mouse (getf opts :mouse))
          (pool-size (getf opts :pool-size))
-         (*current-program* program))
+         (*current-program* program)
+         ;; Open /dev/tty for direct terminal I/O (bypasses pipes in REPL wrappers)
+         (tty-stream (get-tty-stream))
+         (*standard-output* (or tty-stream *standard-output*)))
     (with-raw-terminal (:alt-screen alt :mouse mouse)
       (setf (program-running program) t)
 
@@ -79,8 +82,10 @@ Options (keyword args only):
       (when (and *use-thread-pool* pool-size)
         (setf (program-cmd-pool program) (make-pool pool-size program)))
 
-      ;; Use *terminal-io* for input
-      (setf (program-tty-stream program) *terminal-io*)
+      ;; Use /dev/tty stream if available, fall back to *terminal-io*
+      (setf (program-tty-stream program) (or tty-stream *terminal-io*))
+      (when tty-stream
+        (setf (output-stream (program-renderer program)) tty-stream))
 
       ;; Set up signal handlers (POSIX signals not available on Windows)
       #+(and sbcl (not windows))
@@ -185,7 +190,9 @@ Options (keyword args only):
             (shutdown-pool (program-cmd-pool program))
             (setf (program-cmd-pool program) nil))
 
-          (bt:join-thread input-thread))))))
+          (bt:join-thread input-thread)))))
+    ;; Clean up /dev/tty stream after terminal is restored
+    (close-tty-stream))
 
 ;; Terminal setup/cleanup handled by WITH-RAW-TERMINAL
 

@@ -28,6 +28,38 @@
   (or *tty-fd*
       (setf *tty-fd* (sb-posix:open "/dev/tty" sb-posix:o-rdwr))))
 
+#+(and sbcl unix)
+(defvar *tty-stream* nil
+  "Bidirectional Lisp stream for /dev/tty, used for TUI I/O.")
+
+#+(and sbcl unix)
+(defun get-tty-stream ()
+  "Get a bidirectional Lisp stream for the controlling terminal.
+   Opens /dev/tty so TUI I/O works even when stdio are pipes
+   (e.g. inside icl or other REPL wrappers)."
+  (or *tty-stream*
+      (setf *tty-stream*
+            (let ((fd (sb-posix:open "/dev/tty" sb-posix:o-rdwr)))
+              (sb-sys:make-fd-stream fd
+                                    :input t :output t
+                                    :element-type 'character
+                                    :buffering :line
+                                    :external-format :utf-8
+                                    :auto-close t
+                                    :name "/dev/tty")))))
+
+#-(and sbcl unix)
+(defun get-tty-stream ()
+  "Fallback: no /dev/tty on this platform."
+  nil)
+
+(defun close-tty-stream ()
+  "Close the /dev/tty stream if open."
+  #+(and sbcl unix)
+  (when *tty-stream*
+    (ignore-errors (close *tty-stream*))
+    (setf *tty-stream* nil)))
+
 (defun enter-raw-mode ()
   "Put the terminal in raw mode for TUI applications."
   #+win32
