@@ -20,11 +20,12 @@
    Only redraws if the output has changed."
   (unless (string= view-string (last-output r))
     (setf (last-output r) view-string)
-    ;; Clear screen and move to home before rendering
+    ;; Move home, overwrite content, then clear any leftover lines.
+    ;; This avoids the visible flash caused by ESC[2J (full clear).
     (let ((stream (output-stream r)))
-      (clear-screen stream)
       (move-cursor-home stream)
       (write-string view-string stream)
+      (clear-to-end-of-screen stream)
       (force-output stream))))
 
 (defun move-cursor-home (&optional (stream *standard-output*))
