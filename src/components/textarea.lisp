@@ -363,9 +363,9 @@
 
   (cond
     ;; Key messages
-    ((tuition:key-msg-p msg)
-     (let ((key (tuition:key-msg-key msg))
-           (ctrl (tuition:key-msg-ctrl msg)))
+    ((tuition:key-press-msg-p msg)
+     (let ((key (tuition:key-event-code msg))
+           (ctrl (tuition:mod-contains (tuition:key-event-mod msg) tuition:+mod-ctrl+)))
        (cond
          ;; Navigation
          ((eq key :up)

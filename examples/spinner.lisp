@@ -35,13 +35,13 @@
     (make-instance 'tick-msg)))
 
 ;;; Update (CLOS message dispatch)
-(defmethod tui:update-message ((model spinner-model) (msg tui:key-msg))
-  (let ((key (tui:key-msg-key msg)))
+(defmethod tui:update-message ((model spinner-model) (msg tui:key-press-msg))
+  (let ((key (tui:key-event-code msg)))
     (cond
       ((and (characterp key) (char= key #\q))
        (setf (spinner-quitting model) t)
        (values model (tui:quit-cmd)))
-      ((and (tui:key-msg-ctrl msg) (characterp key) (char= key #\c))
+      ((and (tui:mod-contains (tui:key-event-mod msg) tui:+mod-ctrl+) (characterp key) (char= key #\c))
        (setf (spinner-quitting model) t)
        (values model (tui:quit-cmd)))
       (t (values model nil)))))
@@ -59,9 +59,10 @@
 ;;; View
 (defmethod tui:view ((model spinner-model))
   (let ((frame (aref (spinner-frames model) (spinner-frame model))))
-    (format nil "~%~%   ~A Loading forever...press q to quit~%~%~A"
-            frame
-            (if (spinner-quitting model) "~%" ""))))
+    (tui:make-view
+     (format nil "~%~%   ~A Loading forever...press q to quit~%~%~A"
+             frame
+             (if (spinner-quitting model) "~%" "")))))
 
 ;;; Main entry point
 (defun main ()

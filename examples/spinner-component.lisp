@@ -30,15 +30,15 @@
 (defmethod tui:update ((model spinner-component-model) msg)
   (cond
     ;; Handle key presses
-    ((tui:key-msg-p msg)
-     (let ((key (tui:key-msg-key msg)))
+    ((tui:key-press-msg-p msg)
+     (let ((key (tui:key-event-code msg)))
        (cond
          ;; Quit on q or ctrl+c
          ((and (characterp key) (char= key #\q))
           (setf (model-quitting model) t)
           (values model (tui:quit-cmd)))
 
-         ((and (tui:key-msg-ctrl msg)
+         ((and (tui:mod-contains (tui:key-event-mod msg) tui:+mod-ctrl+)
                (characterp key)
                (char= key #\c))
           (setf (model-quitting model) t)
@@ -57,9 +57,10 @@
 
 ;;; View - use spinner's view
 (defmethod tui:view ((model spinner-component-model))
-  (format nil "~%~%   ~A Loading forever...press q to quit~%~%~A"
-          (tui.spinner:spinner-view (model-spinner model))
-          (if (model-quitting model) "~%" "")))
+  (tui:make-view
+   (format nil "~%~%   ~A Loading forever...press q to quit~%~%~A"
+           (tui.spinner:spinner-view (model-spinner model))
+           (if (model-quitting model) "~%" ""))))
 
 ;;; Main entry point
 (defun main ()

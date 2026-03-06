@@ -307,10 +307,10 @@
       (tui:update-message (model-history model) history-msg)))
   nil)
 
-(defmethod tui:update-message ((model showcase-model) (msg tui:key-msg))
-  (let ((key (tui:key-msg-key msg)))
+(defmethod tui:update-message ((model showcase-model) (msg tui:key-press-msg))
+  (let ((key (tui:key-event-code msg)))
     (cond
-      ((and (tui:key-msg-ctrl msg) (characterp key) (char= key #\c))
+      ((and (tui:mod-contains (tui:key-event-mod msg) tui:+mod-ctrl+) (characterp key) (char= key #\c))
        (values model (tui:quit-cmd)))
       (t (values model nil)))))
 
@@ -337,7 +337,7 @@
 
   (values model nil))
 
-(defmethod tui:update-message ((model showcase-model) (msg tui:mouse-release-event))
+(defmethod tui:update-message ((model showcase-model) (msg tui:mouse-release-msg))
   ;; Handle mouse clicks for all interactive elements
   (when (eq (tui:mouse-event-button msg) :left)
 
@@ -469,7 +469,10 @@
                                      ""
                                      tab-content)))
     ;; Apply zone-scan to the final complete layout
-    (tui:zone-scan content)))
+    (tui:make-view
+     (tui:zone-scan content)
+     :alt-screen t
+     :mouse-mode :cell-motion)))
 
 ;;; Main entry point
 (defun main ()
@@ -480,15 +483,11 @@
   ;; Suppress SBCL poll warnings during terminal I/O
   #+sbcl
   (handler-bind ((warning #'muffle-warning))
-    (let ((program (tui:make-program (make-instance 'showcase-model)
-                                    :alt-screen t
-                                    :mouse :cell-motion)))
+    (let ((program (tui:make-program (make-instance 'showcase-model))))
       (tui:run program)))
 
   #-sbcl
-  (let ((program (tui:make-program (make-instance 'showcase-model)
-                                  :alt-screen t
-                                  :mouse :cell-motion)))
+  (let ((program (tui:make-program (make-instance 'showcase-model))))
     (tui:run program)))
 
 (eval-when (:load-toplevel :execute)

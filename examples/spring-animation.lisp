@@ -90,12 +90,12 @@
             (sleep 0.016)
             (make-instance 'tick-msg))))
 
-(defmethod tui:update ((model spring-model) (msg tui:key-msg))
-  (let ((key (tui:key-msg-key msg)))
+(defmethod tui:update ((model spring-model) (msg tui:key-press-msg))
+  (let ((key (tui:key-event-code msg)))
     (cond
       ;; Quit on 'q' or Ctrl+C
       ((or (and (characterp key) (char= key #\q))
-           (and (characterp key) (char= key #\c) (tui:key-msg-ctrl msg)))
+           (and (characterp key) (char= key #\c) (tui:mod-contains (tui:key-event-mod msg) tui:+mod-ctrl+)))
        (setf (model-quitting model) t)
        (values model (tui:quit-cmd)))
 
@@ -120,7 +120,7 @@
          (clamped-pos (max 0 (min pos max-width)))
          (before (make-string clamped-pos :initial-element #\-))
          (after (make-string (- max-width clamped-pos) :initial-element #\-)))
-    (format nil "~A: ~A●~A" label before after)))
+    (format nil "~A: ~A~C[7m ~C[27m~A" label before #\Escape #\Escape after)))
 
 (defmethod tui:view ((model spring-model))
   (let* ((width 60)
@@ -128,7 +128,7 @@
          (bouncy-track (render-track (ball2-x model) "Bouncy (under-damped)    " width))
          (gentle-track (render-track (ball3-x model) "Gentle (over-damped)     " width)))
 
-    (format nil "~A~%~%~
+    (tui:make-view (format nil "~A~%~%~
                  ~A~%~%~
                  ~A~%~%~
                  Target: ~A~%~%~
@@ -136,7 +136,7 @@
             smooth-track
             bouncy-track
             gentle-track
-            (round (ball1-target model)))))
+            (round (ball1-target model))))))
 
 ;;; Main
 (defun main ()

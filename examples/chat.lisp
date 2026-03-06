@@ -57,9 +57,9 @@
     ;; Handle specific message types first
     (cond
       ;; Key press - handle before passing to textarea
-      ((tui:key-msg-p msg)
-       (let ((key (tui:key-msg-key msg))
-             (ctrl (tui:key-msg-ctrl msg)))
+      ((tui:key-press-msg-p msg)
+       (let ((key (tui:key-event-code msg))
+             (ctrl (tui:mod-contains (tui:key-event-mod msg) tui:+mod-ctrl+)))
          (cond
            ;; Quit on Ctrl+C or Esc
            ((or (and ctrl (characterp key) (char= key #\c))
@@ -139,13 +139,13 @@
   (let ((vp-view (tui.viewport:viewport-view (viewport model)))
         (ta-view (tui.textarea:textarea-view (textarea model)))
         (gap (format nil "~%~%")))
-    (format nil "~A~A~A" vp-view gap ta-view)))
+    (tui:make-view (format nil "~A~A~A" vp-view gap ta-view))))
 
 ;;; Main entry point
 (defun main ()
   "Run the chat demo."
   (let ((model (make-instance 'chat-model)))
-    (tui:run (tui:make-program model :alt-screen nil :mouse nil))))
+    (tui:run (tui:make-program model))))
 
 ;;; Run automatically when loaded
 (main)

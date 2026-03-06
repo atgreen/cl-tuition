@@ -342,9 +342,9 @@
 (defun datepicker-update (picker msg)
   "Update the datepicker with a message. Returns (values new-picker cmd)."
   (cond
-    ((and (typep msg 'tuition:key-msg) (datepicker-focused picker))
-     (let ((key (tuition:key-msg-key msg))
-           (ctrl (tuition:key-msg-ctrl msg)))
+    ((and (typep msg 'tuition:key-press-msg) (datepicker-focused picker))
+     (let ((key (tuition:key-event-code msg))
+           (ctrl (tuition:mod-contains (tuition:key-event-mod msg) tuition:+mod-ctrl+)))
        (cond
          ;; Left arrow or h - previous day
          ((or (eq key :left)

@@ -244,6 +244,108 @@ Works in most modern terminal emulators (xterm, gnome-terminal, iTerm2, etc.)."
   (format t "~C[?1004l" #\Escape)
   (force-output))
 
+;;; Cursor shape and color controls
+
+(defun set-cursor-shape (shape &key (blink nil) (stream *standard-output*))
+  "Set the cursor shape. SHAPE is :block, :underline, or :bar.
+When BLINK is T, the cursor blinks."
+  (let* ((shape-num (ecase shape
+                      (:block 0)
+                      (:underline 1)
+                      (:bar 2)))
+         (encoded (+ (* shape-num 2) 1 (if blink 0 1))))
+    (format stream "~C[~D q" #\Escape encoded)
+    (force-output stream)))
+
+(defun set-cursor-color (color &optional (stream *standard-output*))
+  "Set the cursor color using OSC 12. COLOR is a string like \"#FF0000\"."
+  (format stream "~C]12;~A~C\\" #\Escape color #\Escape)
+  (force-output stream))
+
+(defun request-background-color (&optional (stream *standard-output*))
+  "Query the terminal background color via OSC 11."
+  (format stream "~C]11;?~C\\" #\Escape #\Escape)
+  (force-output stream))
+
+(defun request-foreground-color (&optional (stream *standard-output*))
+  "Query the terminal foreground color via OSC 10."
+  (format stream "~C]10;?~C\\" #\Escape #\Escape)
+  (force-output stream))
+
+(defun enable-kitty-keyboard (&key (flags 1) (stream *standard-output*))
+  "Enable Kitty keyboard protocol with FLAGS (pushed onto stack).
+Flags: 1=disambiguate, 2=report event types, 4=report alternate keys,
+       8=report all keys as escape codes, 16=report associated text."
+  (format stream "~C[>~Du" #\Escape flags)
+  (force-output stream))
+
+(defun disable-kitty-keyboard (&optional (stream *standard-output*))
+  "Disable Kitty keyboard protocol (pop from stack)."
+  (format stream "~C[<u" #\Escape)
+  (force-output stream))
+
+(defun request-kitty-keyboard (&optional (stream *standard-output*))
+  "Query current Kitty keyboard protocol flags."
+  (format stream "~C[?u" #\Escape)
+  (force-output stream))
+
+;;; Unicode mode (DEC private mode 2027)
+
+(defun enable-unicode-mode (&optional (stream *standard-output*))
+  "Enable Unicode mode (DEC private mode 2027).
+Tells the terminal to use Unicode text segmentation for character width."
+  (format stream "~C[?2027h" #\Escape)
+  (force-output stream))
+
+(defun disable-unicode-mode (&optional (stream *standard-output*))
+  "Disable Unicode mode (DEC private mode 2027)."
+  (format stream "~C[?2027l" #\Escape)
+  (force-output stream))
+
+;;; Terminal version / identification query
+
+(defun request-terminal-version (&optional (stream *standard-output*))
+  "Query the terminal version via XTVERSION (CSI > 0 q).
+The terminal responds with DCS >| version ST."
+  (format stream "~C[>0q" #\Escape)
+  (force-output stream))
+
+(defun request-cursor-color (&optional (stream *standard-output*))
+  "Query the terminal cursor color via OSC 12.
+The terminal responds with OSC 12;color ST."
+  (format stream "~C]12;?~C\\" #\Escape #\Escape)
+  (force-output stream))
+
+;;; DEC Private Mode Report (DECRPM)
+
+(defun request-mode-report (mode &optional (stream *standard-output*))
+  "Query whether DEC private MODE is set via DECRPM (CSI ? mode $ p).
+The terminal responds with CSI ? mode ; setting $ y."
+  (format stream "~C[?~D$p" #\Escape mode)
+  (force-output stream))
+
+;;; Clipboard (OSC 52)
+
+(defun set-clipboard (content &optional (stream *standard-output*))
+  "Set the system clipboard content via OSC 52.
+CONTENT is a string to place on the clipboard."
+  (let ((encoded (cl-base64:string-to-base64-string content)))
+    (format stream "~C]52;c;~A~C\\" #\Escape encoded #\Escape)
+    (force-output stream)))
+
+(defun read-clipboard (&optional (stream *standard-output*))
+  "Request the system clipboard content via OSC 52.
+The terminal responds with an OSC 52 sequence containing base64 content."
+  (format stream "~C]52;c;?~C\\" #\Escape #\Escape)
+  (force-output stream))
+
+(defun set-primary-clipboard (content &optional (stream *standard-output*))
+  "Set the primary selection content via OSC 52.
+CONTENT is a string to place on the primary selection."
+  (let ((encoded (cl-base64:string-to-base64-string content)))
+    (format stream "~C]52;p;~A~C\\" #\Escape encoded #\Escape)
+    (force-output stream)))
+
 ;;; Suspend/resume support
 
 (defun suspend-terminal (&key alt-screen mouse focus-events)

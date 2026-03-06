@@ -70,9 +70,9 @@
      (values model (tui:quit-cmd)))
 
     ;; Handle key messages
-    ((typep msg 'tui:key-msg)
-     (let ((key (tui:key-msg-key msg))
-           (ctrl (tui:key-msg-ctrl msg)))
+    ((typep msg 'tui:key-press-msg)
+     (let ((key (tui:key-event-code msg))
+           (ctrl (tui:mod-contains (tui:key-event-mod msg) tui:+mod-ctrl+)))
        (cond
          ;; Quit on Ctrl+C
          ((and ctrl (characterp key) (char= key #\c))
@@ -167,41 +167,43 @@
   (if (form-submitted model)
       ;; Show submitted data
       (let ((data (form-submitted-data model)))
-        (format nil "~%Form Submitted!~%~%~
-                     Name: ~A~%~
-                     Email: ~A~%~
-                     Password: ~A~%~%~
-                     Press any key to exit.~%"
-                (getf data :name)
-                (getf data :email)
-                (make-string (length (getf data :password)) :initial-element #\*)))
+        (tui:make-view
+         (format nil "~%Form Submitted!~%~%~
+                      Name: ~A~%~
+                      Email: ~A~%~
+                      Password: ~A~%~%~
+                      Press any key to exit.~%"
+                 (getf data :name)
+                 (getf data :email)
+                 (make-string (length (getf data :password)) :initial-element #\*))))
 
       ;; Show form
-      (format nil "~%Registration Form~%~
-                   ================~%~%~
-                   ~A~%~
-                   ~A~%~
-                   ~A~%~@[~%ERROR: ~A~%~]~%~
-                   Instructions:~%~
-                   - TAB: Next field, Shift+TAB: Previous field~%~
-                   - ENTER: Submit (validates email)~%~
-                   - Ctrl+C: Quit~%~
-                   - Home/End, Ctrl+A/E: Jump to start/end~%~
-                   - Alt+B/F: Move by word~%~
-                   - Ctrl+K: Kill to end~%~
-                   - Ctrl+U: Kill to start~%~
-                   - Ctrl+W: Kill word backward~%~
-                   - Ctrl+Y: Yank (paste killed text)~%~
-                   - Ctrl+Z: Undo, Alt+Z: Redo~%~
-                   - Alt+Backspace: Delete word backward~%~
-                   - Alt+D: Delete word forward~%~
-                   ~%~
-                   Active field: ~A~%"
-              (tui.textinput:textinput-view (form-name-input model))
-              (tui.textinput:textinput-view (form-email-input model))
-              (tui.textinput:textinput-view (form-password-input model))
-              (form-validation-error model)
-              (form-active-field model))))
+      (tui:make-view
+       (format nil "~%Registration Form~%~
+                    ================~%~%~
+                    ~A~%~
+                    ~A~%~
+                    ~A~%~@[~%ERROR: ~A~%~]~%~
+                    Instructions:~%~
+                    - TAB: Next field, Shift+TAB: Previous field~%~
+                    - ENTER: Submit (validates email)~%~
+                    - Ctrl+C: Quit~%~
+                    - Home/End, Ctrl+A/E: Jump to start/end~%~
+                    - Alt+B/F: Move by word~%~
+                    - Ctrl+K: Kill to end~%~
+                    - Ctrl+U: Kill to start~%~
+                    - Ctrl+W: Kill word backward~%~
+                    - Ctrl+Y: Yank (paste killed text)~%~
+                    - Ctrl+Z: Undo, Alt+Z: Redo~%~
+                    - Alt+Backspace: Delete word backward~%~
+                    - Alt+D: Delete word forward~%~
+                    ~%~
+                    Active field: ~A~%"
+               (tui.textinput:textinput-view (form-name-input model))
+               (tui.textinput:textinput-view (form-email-input model))
+               (tui.textinput:textinput-view (form-password-input model))
+               (form-validation-error model)
+               (form-active-field model)))))
 
 ;;; Main entry point
 (defun main ()

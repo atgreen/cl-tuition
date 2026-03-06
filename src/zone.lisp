@@ -204,26 +204,10 @@
         ;; Return cleaned output
         (coerce output 'string))))
 
-;;; Zone info methods
-
-(defmethod zone-in-bounds-p ((zone zone-info) (msg mouse-msg))
-  "Check if a mouse message is within the bounds of a zone.
-   Despite documentation saying mouse coords are 1-based, empirically they
-   seem to need different handling. Mouse X is 1-based, but mouse Y appears
-   to already match our 0-based line counting after accounting for rendering offset."
-  (and zone
-       (>= (zone-info-end-x zone) (zone-info-start-x zone))
-       (>= (zone-info-end-y zone) (zone-info-start-y zone))
-       (let ((mx (1- (mouse-msg-x msg)))  ; X is 1-based, convert to 0-based
-             (my (- (mouse-msg-y msg) 2))) ; Y needs -2 offset (empirically determined)
-         (and (>= mx (zone-info-start-x zone))
-              (>= my (zone-info-start-y zone))
-              (<= mx (zone-info-end-x zone))
-              (<= my (zone-info-end-y zone))))))
+;;; Zone info methods - v2 mouse events use modifier bitmask
 
 (defmethod zone-in-bounds-p ((zone zone-info) (msg mouse-event))
-  "Check if a mouse event is within the bounds of a zone.
-   Uses the same coordinate adjustments as mouse-msg."
+  "Check if a mouse event is within the bounds of a zone."
   (and zone
        (>= (zone-info-end-x zone) (zone-info-start-x zone))
        (>= (zone-info-end-y zone) (zone-info-start-y zone))
@@ -234,10 +218,6 @@
               (<= mx (zone-info-end-x zone))
               (<= my (zone-info-end-y zone))))))
 
-(defmethod zone-in-bounds-p ((zone null) (msg mouse-msg))
-  "nil zone is never in bounds."
-  nil)
-
 (defmethod zone-in-bounds-p ((zone null) (msg mouse-event))
   "nil zone is never in bounds."
   nil)
@@ -245,6 +225,6 @@
 (defun zone-pos (zone msg)
   "Get mouse position relative to zone. Returns (values x y) or (values -1 -1)."
   (if (and zone (zone-in-bounds-p zone msg))
-      (values (- (mouse-msg-x msg) (zone-info-start-x zone))
-              (- (mouse-msg-y msg) (zone-info-start-y zone)))
+      (values (- (mouse-event-x msg) (zone-info-start-x zone))
+              (- (mouse-event-y msg) (zone-info-start-y zone)))
       (values -1 -1)))

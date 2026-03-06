@@ -43,7 +43,7 @@
   "The stream to read input from. Set by the program.")
 
 (defun read-key ()
-  "Read a single key from stdin and return a key-msg.
+  "Read a single key from stdin and return a key-press-msg.
    Returns nil if no input is available."
   (let ((stream (or *input-stream* *standard-input*)))
     (let ((char (read-char-no-hang stream nil nil)))
@@ -58,23 +58,21 @@
           ;; ASCII DEL (127) is commonly sent for backspace
           ((= (char-code char) 127)
            (%ilog "read-key: DEL(127) -> :backspace")
-           (make-key-msg :key :backspace))
+           (make-key-press-msg :code :backspace))
 
           ;; Control characters (including ASCII BS = 8)
           ((< (char-code char) 32)
            (let ((k (ctrl-char-to-key char)))
              (%ilog "read-key: control char ~D -> ~A" (char-code char) k)
-             (make-key-msg :key k :ctrl t)))
+             (make-key-press-msg :code k :mod +mod-ctrl+)))
 
           ;; Regular characters
           (t
            (%ilog "read-key: graphic '~A'" char)
-           (make-key-msg :key char)))))))
+           (make-key-press-msg :code char :text (string char))))))))
 
 (defun ctrl-char-to-key (char)
-  "Convert a control character to its key representation.
-   For most control chars, returns the corresponding lowercase letter.
-   For special cases like tab, enter, backspace, returns a keyword."
+  "Convert a control character to its key representation."
   (let ((code (char-code char)))
     (case code
       (8 :backspace)
@@ -82,7 +80,6 @@
       (10 :enter)
       (13 :enter)
       ;; For other control characters, return the corresponding letter
-      ;; Ctrl+A is code 1, Ctrl+Z is code 26, etc.
       (otherwise (code-char (+ code 96))))))
 
 (defun parse-escape-start ()
@@ -99,12 +96,12 @@
             (%ilog "parse-escape-start: next='~A' code=~D" next (and next (char-code next)))
             (when next
               (let ((ret (parse-escape-sequence next)))
-            (%ilog "parse-escape-start: ret=~S" ret)
+                (%ilog "parse-escape-start: ret=~S" ret)
                 ret)))
           ;; No following char - just escape key
           (progn
             (%ilog "parse-escape-start: lone ESC -> :escape")
-            (make-key-msg :key :escape))))))
+            (make-key-press-msg :code :escape))))))
 
 (defun parse-escape-sequence (char)
   "Parse an escape sequence starting after ESC."
@@ -119,17 +116,36 @@
      (%ilog "parse-escape-sequence: SS3 'O'")
      (parse-ss3-sequence))
 
+    ;; OSC sequences (ESC ])
+    ((char= char #\])
+     (%ilog "parse-escape-sequence: OSC ']'")
+     (parse-osc-sequence))
+
+    ;; DCS sequences (ESC P) - used for XTVERSION responses
+    ((char= char #\P)
+     (%ilog "parse-escape-sequence: DCS 'P'")
+     (parse-dcs-sequence))
+
     ;; Alt+key
     ((graphic-char-p char)
-     (make-key-msg :key char :alt t))
+     (make-key-press-msg :code char :mod +mod-alt+ :text (string char)))
     ;; ESC + DEL (common M-Backspace in some terminals)
     ((and (characterp char) (= (char-code char) 127))
-     (make-key-msg :key :backspace :alt t))
+     (make-key-press-msg :code :backspace :mod +mod-alt+))
 
     ;; Unknown escape sequence
     (t
      (%ilog "parse-escape-sequence: unknown ESC seq start '~A'" char)
-     (make-key-msg :key :escape))))
+     (make-key-press-msg :code :escape))))
+
+(defun %xterm-modifier-to-mod (modifier)
+  "Convert xterm-style modifier number to mod bitmask.
+Modifier is 1-based: 2=Shift, 3=Alt, 4=Shift+Alt, 5=Ctrl, etc."
+  (let ((m (1- modifier)))
+    (make-mod :shift (logbitp 0 m)
+              :alt (logbitp 1 m)
+              :ctrl (logbitp 2 m)
+              :meta (logbitp 3 m))))
 
 (defun parse-csi-sequence ()
   "Parse a CSI (Control Sequence Introducer) sequence (ESC [)."
@@ -144,26 +160,31 @@
         ;; Focus events: ESC [ I (focus in), ESC [ O (focus out)
         ((and ch (member ch '(#\I #\O)))
          (case ch
-           (#\I (progn (%ilog "parse-csi-sequence: -> focus-in") (make-focus-in-msg)))
-           (#\O (progn (%ilog "parse-csi-sequence: -> focus-out") (make-focus-out-msg)))))
+           (#\I (progn (%ilog "parse-csi-sequence: -> focus-msg") (make-focus-msg)))
+           (#\O (progn (%ilog "parse-csi-sequence: -> blur-msg") (make-blur-msg)))))
 
         ;; Navigation keys: arrows, Home, End, Backtab
         ((and ch (member ch '(#\A #\B #\C #\D #\H #\F #\Z)))
          (case ch
-           (#\A (progn (%ilog "parse-csi-sequence: -> :up") (make-key-msg :key :up)))
-           (#\B (progn (%ilog "parse-csi-sequence: -> :down") (make-key-msg :key :down)))
-           (#\C (progn (%ilog "parse-csi-sequence: -> :right") (make-key-msg :key :right)))
-           (#\D (progn (%ilog "parse-csi-sequence: -> :left") (make-key-msg :key :left)))
-           (#\H (progn (%ilog "parse-csi-sequence: -> :home") (make-key-msg :key :home)))
-           (#\F (progn (%ilog "parse-csi-sequence: -> :end") (make-key-msg :key :end)))
-           (#\Z (progn (%ilog "parse-csi-sequence: -> :backtab") (make-key-msg :key :backtab)))))
+           (#\A (make-key-press-msg :code :up))
+           (#\B (make-key-press-msg :code :down))
+           (#\C (make-key-press-msg :code :right))
+           (#\D (make-key-press-msg :code :left))
+           (#\H (make-key-press-msg :code :home))
+           (#\F (make-key-press-msg :code :end))
+           (#\Z (make-key-press-msg :code :tab :mod +mod-shift+))))
 
-        ;; Digits: e.g., 3~ for Delete, or 1;2A for Shift+Up
+        ;; Kitty keyboard response: ESC [ ? flags u
+        ((and ch (char= ch #\?))
+         (parse-kitty-query-response stream))
+
+        ;; Digits: e.g., 3~ for Delete, or 1;2A for Shift+Up, or Kitty u sequences
         ((and ch (digit-char-p ch))
          (let ((params nil)
                (current-num (digit-char-p ch))
+               (sub-params nil)
                (term nil))
-           ;; Read digits, semicolons, until we hit a terminator
+           ;; Read digits, semicolons, colons until we hit a terminator
            (loop for c = (read-char stream nil nil)
                  while c
                  do (cond
@@ -172,22 +193,28 @@
                       ((char= c #\;)
                        (push current-num params)
                        (setf current-num 0))
+                      ((char= c #\:)
+                       ;; Sub-parameter separator (used in Kitty protocol)
+                       (push current-num sub-params)
+                       (setf current-num 0))
                       (t
                        (push current-num params)
                        (setf term c)
                        (return))))
            (setf params (nreverse params))
-           (%ilog "parse-csi-sequence: params=~A term='~A'" params term)
+           (setf sub-params (nreverse sub-params))
+           (%ilog "parse-csi-sequence: params=~A sub-params=~A term='~A'" params sub-params term)
            (cond
+             ;; Kitty keyboard protocol: ESC [ codepoint ; modifiers [: event-type] u
+             ((and term (char= term #\u))
+              (parse-kitty-key-sequence params sub-params))
+
              ;; Modified arrow keys: ESC[1;NA where N is modifier
-             ;; Modifier: 2=Shift, 3=Alt, 4=Shift+Alt, 5=Ctrl, 6=Shift+Ctrl, 7=Alt+Ctrl, 8=Shift+Alt+Ctrl
              ((and term (member term '(#\A #\B #\C #\D #\H #\F))
                    (= (length params) 2)
                    (= (first params) 1))
               (let* ((modifier (second params))
-                     (shift (logbitp 0 (1- modifier)))
-                     (alt (logbitp 1 (1- modifier)))
-                     (ctrl (logbitp 2 (1- modifier)))
+                     (mod (%xterm-modifier-to-mod modifier))
                      (base-key (case term
                                  (#\A :up)
                                  (#\B :down)
@@ -195,39 +222,168 @@
                                  (#\D :left)
                                  (#\H :home)
                                  (#\F :end))))
-                (%ilog "parse-csi-sequence: modified key ~A shift=~A alt=~A ctrl=~A" base-key shift alt ctrl)
-                (make-key-msg :key (if shift
-                                       (case base-key
-                                         (:up :shift-up)
-                                         (:down :shift-down)
-                                         (:left :shift-left)
-                                         (:right :shift-right)
-                                         (:home :shift-home)
-                                         (:end :shift-end)
-                                         (otherwise base-key))
-                                       base-key)
-                              :alt alt :ctrl ctrl)))
+                (%ilog "parse-csi-sequence: modified key ~A mod=~D" base-key mod)
+                (make-key-press-msg :code base-key :mod mod)))
+
              ;; Special keys with ~ terminator
              ((and term (char= term #\~))
-              (let ((num (first params)))
+              (let ((num (first params))
+                    (mod (if (= (length params) 2)
+                             (%xterm-modifier-to-mod (second params))
+                             0)))
                 (case num
-                  (2 (progn (%ilog "parse-csi-sequence: -> :insert") (make-key-msg :key :insert)))
-                  (3 (progn (%ilog "parse-csi-sequence: -> :delete") (make-key-msg :key :delete)))
-                  (5 (progn (%ilog "parse-csi-sequence: -> :page-up") (make-key-msg :key :page-up)))
-                  (6 (progn (%ilog "parse-csi-sequence: -> :page-down") (make-key-msg :key :page-down)))
+                  (2 (make-key-press-msg :code :insert :mod mod))
+                  (3 (make-key-press-msg :code :delete :mod mod))
+                  (5 (make-key-press-msg :code :page-up :mod mod))
+                  (6 (make-key-press-msg :code :page-down :mod mod))
                   (200 (progn (%ilog "parse-csi-sequence: bracketed paste start")
                               (parse-bracketed-paste stream)))
-                  (otherwise (make-key-msg :key :unknown)))))
-             (t (make-key-msg :key :unknown)))))
+                  (otherwise (make-key-press-msg :code :unknown)))))
+             (t (make-key-press-msg :code :unknown)))))
 
         (t
          ;; Consume any remaining chars in the sequence then return unknown
          (loop while (listen stream) do (read-char-no-hang stream nil nil))
-         (make-key-msg :key :unknown))))))
+         (make-key-press-msg :code :unknown))))))
+
+;;; ---------- Kitty keyboard protocol ----------
+
+(defun parse-kitty-key-sequence (params sub-params)
+  "Parse a Kitty keyboard sequence from CSI params.
+Format: CSI codepoint ; modifiers [: event-type] u"
+  (let* ((codepoint (first params))
+         (mod-and-event (if (>= (length params) 2)
+                            (second params)
+                            1))
+         ;; If sub-params has values, they came from the modifier param
+         ;; Format is modifiers:event-type
+         (event-type (cond
+                       ;; Sub-params from : separator within the modifier param
+                       (sub-params (car (last sub-params)))
+                       (t 1))) ; default to press
+         (modifier (if sub-params
+                       (first sub-params)
+                       mod-and-event))
+         ;; Convert Kitty modifier (1-based) to our bitmask
+         (mod (%kitty-modifier-to-mod modifier))
+         ;; Convert codepoint to key code
+         (code (%kitty-codepoint-to-key codepoint))
+         (text (if (and (> codepoint 31) (< codepoint 127))
+                   (string (code-char codepoint))
+                   "")))
+    (%ilog "parse-kitty-key: cp=~D mod=~D event=~D -> code=~A" codepoint modifier event-type code)
+    (case event-type
+      (1 (make-key-press-msg :code code :mod mod :text text))            ; press
+      (2 (make-key-press-msg :code code :mod mod :text text :repeat-p t)) ; repeat
+      (3 (make-key-release-msg :code code :mod mod :text text))           ; release
+      (otherwise (make-key-press-msg :code code :mod mod :text text)))))
+
+(defun %kitty-modifier-to-mod (modifier)
+  "Convert Kitty modifier value (1-based bitmask) to our mod bitmask."
+  (let ((m (1- modifier)))
+    (make-mod :shift (logbitp 0 m)
+              :alt (logbitp 1 m)
+              :ctrl (logbitp 2 m)
+              :super (logbitp 3 m)
+              :hyper (logbitp 4 m)
+              :meta (logbitp 5 m)
+              :caps-lock (logbitp 6 m)
+              :num-lock (logbitp 7 m))))
+
+(defun %kitty-codepoint-to-key (codepoint)
+  "Convert a Unicode codepoint from Kitty protocol to a key code."
+  (case codepoint
+    (9 :tab)
+    (13 :enter)
+    (27 :escape)
+    (127 :backspace)
+    ;; Function keys (Kitty uses specific codepoints)
+    (57344 :escape)
+    (57345 :enter)
+    (57346 :tab)
+    (57347 :backspace)
+    (57348 :insert)
+    (57349 :delete)
+    (57350 :left)
+    (57351 :right)
+    (57352 :up)
+    (57353 :down)
+    (57354 :page-up)
+    (57355 :page-down)
+    (57356 :home)
+    (57357 :end)
+    (57358 :caps-lock)
+    (57359 :scroll-lock)
+    (57360 :num-lock)
+    (57361 :print-screen)
+    (57362 :pause)
+    (57363 :menu)
+    ;; F1-F35
+    (57364 :f1) (57365 :f2) (57366 :f3) (57367 :f4)
+    (57368 :f5) (57369 :f6) (57370 :f7) (57371 :f8)
+    (57372 :f9) (57373 :f10) (57374 :f11) (57375 :f12)
+    (57376 :f13) (57377 :f14) (57378 :f15) (57379 :f16)
+    (57380 :f17) (57381 :f18) (57382 :f19) (57383 :f20)
+    ;; Keypad
+    (57399 :kp-0) (57400 :kp-1) (57401 :kp-2) (57402 :kp-3)
+    (57403 :kp-4) (57404 :kp-5) (57405 :kp-6) (57406 :kp-7)
+    (57407 :kp-8) (57408 :kp-9)
+    (57409 :kp-decimal) (57410 :kp-divide) (57411 :kp-multiply)
+    (57412 :kp-subtract) (57413 :kp-add) (57414 :kp-enter)
+    (57415 :kp-equal)
+    ;; Modifier keys themselves
+    (57441 :left-shift) (57442 :left-ctrl) (57443 :left-alt)
+    (57444 :left-super) (57445 :left-hyper) (57446 :left-meta)
+    (57447 :right-shift) (57448 :right-ctrl) (57449 :right-alt)
+    (57450 :right-super) (57451 :right-hyper) (57452 :right-meta)
+    ;; Regular printable characters
+    (otherwise
+     (if (and (>= codepoint 32) (<= codepoint #x10FFFF))
+         (code-char codepoint)
+         :unknown))))
+
+(defun parse-kitty-query-response (stream)
+  "Parse a CSI ? sequence: either Kitty query (CSI ? flags u)
+or DECRPM response (CSI ? mode ; setting $ y)."
+  (let ((params nil)
+        (current-num 0)
+        (term nil)
+        (prev-char nil))
+    (loop for c = (read-char stream nil nil)
+          while c
+          do (cond
+               ((digit-char-p c)
+                (setf current-num (+ (* current-num 10) (digit-char-p c))))
+               ((char= c #\;)
+                (push current-num params)
+                (setf current-num 0))
+               ((char= c #\$)
+                ;; DECRPM: next char should be 'y'
+                (push current-num params)
+                (setf prev-char c))
+               (t
+                (push current-num params)
+                (setf term c)
+                (return))))
+    (setf params (nreverse params))
+    (cond
+      ;; Kitty keyboard query response: CSI ? flags u
+      ((and term (char= term #\u))
+       (%ilog "parse-kitty-query-response: flags=~D" (first params))
+       (make-instance 'keyboard-enhancements-msg :flags (or (first params) 0)))
+      ;; DECRPM response: CSI ? mode ; setting $ y
+      ((and term (char= term #\y) prev-char)
+       (let ((mode (first params))
+             (setting (second params)))
+         (%ilog "parse-decrpm: mode=~D setting=~D" mode setting)
+         (make-mode-report-msg :mode mode :setting setting)))
+      (t (make-key-press-msg :code :unknown)))))
+
+;;; ---------- Mouse sequence parsing ----------
 
 (defun parse-mouse-sequence (stream)
   "Parse SGR mouse tracking sequence: ESC [ < Cb ; Cx ; Cy (M or m)
-   Returns new hierarchical mouse event types."
+   Returns v2 mouse event types with modifier bitmask."
   (let ((params (make-array 3 :initial-element 0))
         (param-idx 0)
         (current-num 0))
@@ -250,48 +406,40 @@
                        (is-press (char= char #\M))
                        (base-button (logand cb 3))
                        (is-motion (logbitp 5 cb))  ; Motion bit (32)
-                       (is-scroll (or (= cb 64) (= cb 65)))
                        (button (case base-button
                                  (0 :left)
                                  (1 :middle)
                                  (2 :right)
                                  (t nil)))
-                       (shift (logbitp 2 cb))
-                       (alt (logbitp 3 cb))
-                       (ctrl (logbitp 4 cb)))
+                       (mod (make-mod :shift (logbitp 2 cb)
+                                      :alt (logbitp 3 cb)
+                                      :ctrl (logbitp 4 cb))))
                   (return-from parse-mouse-sequence
                     (cond
                       ;; Scroll events
-                      ((= cb 64) (make-mouse-scroll-event :x x :y y :direction :up
-                                                         :shift shift :alt alt :ctrl ctrl))
-                      ((= cb 65) (make-mouse-scroll-event :x x :y y :direction :down
-                                                         :shift shift :alt alt :ctrl ctrl))
-                      ;; Drag events (motion with button held)
-                      ((and is-motion button)
-                       (make-mouse-drag-event :x x :y y :button button
-                                             :shift shift :alt alt :ctrl ctrl))
-                      ;; Move events (motion without button)
+                      ((= cb 64) (make-mouse-wheel-msg :x x :y y :direction :up :mod mod))
+                      ((= cb 65) (make-mouse-wheel-msg :x x :y y :direction :down :mod mod))
+                      ;; Motion events (with or without button)
                       (is-motion
-                       (make-mouse-move-event :x x :y y
-                                             :shift shift :alt alt :ctrl ctrl))
-                      ;; Press/release events
+                       (make-mouse-motion-msg :x x :y y :button button :mod mod))
+                      ;; Click/release
                       (is-press
-                       (make-mouse-press-event :x x :y y :button button
-                                              :shift shift :alt alt :ctrl ctrl))
+                       (make-mouse-click-msg :x x :y y :button button :mod mod))
                       (t
-                       (make-mouse-release-event :x x :y y :button button
-                                                :shift shift :alt alt :ctrl ctrl))))))
+                       (make-mouse-release-msg :x x :y y :button button :mod mod))))))
                (t (return nil))))
     ;; If we didn't parse properly, return unknown key
-    (make-key-msg :key :unknown)))
+    (make-key-press-msg :code :unknown)))
 
-(defun key-string (key-msg)
-  "Convert a key-msg to a string representation."
-  (let ((key (key-msg-key key-msg)))
+;;; ---------- Utility functions ----------
+
+(defun key-string (key-event)
+  "Convert a key event to a string representation."
+  (let ((code (key-event-code key-event)))
     (cond
-      ((characterp key) (string key))
-      ((keywordp key) (string-downcase (symbol-name key)))
-      (t (format nil "~A" key)))))
+      ((characterp code) (string code))
+      ((keywordp code) (string-downcase (symbol-name code)))
+      (t (format nil "~A" code)))))
 
 (defun parse-bracketed-paste (stream)
   "Read everything until ESC [ 201 ~ and return a paste message."
@@ -325,10 +473,103 @@
     (let ((ch (read-char stream nil nil)))
       (%ilog "parse-ss3-sequence: ch='~A' code=~A" ch (and ch (char-code ch)))
       (case ch
-        (#\A (make-key-msg :key :up))
-        (#\B (make-key-msg :key :down))
-        (#\C (make-key-msg :key :right))
-        (#\D (make-key-msg :key :left))
-        (#\F (make-key-msg :key :end))
-        (#\H (make-key-msg :key :home))
-        (otherwise (make-key-msg :key :unknown))))))
+        (#\A (make-key-press-msg :code :up))
+        (#\B (make-key-press-msg :code :down))
+        (#\C (make-key-press-msg :code :right))
+        (#\D (make-key-press-msg :code :left))
+        (#\F (make-key-press-msg :code :end))
+        (#\H (make-key-press-msg :code :home))
+        (otherwise (make-key-press-msg :code :unknown))))))
+
+;;; ---------- OSC sequence parsing ----------
+
+(defun %read-until-st (stream)
+  "Read until String Terminator (ST = ESC \\ or BEL).
+Returns the accumulated string content."
+  (let ((out (make-string-output-stream)))
+    (loop for ch = (read-char stream nil nil)
+          while ch
+          do (cond
+               ;; ESC \\ is ST
+               ((char= ch #\Escape)
+                (let ((next (read-char stream nil nil)))
+                  (when (and next (char= next #\\))
+                    (return)))
+                ;; If not \\, put ESC content in output
+                (write-char ch out))
+               ;; BEL is also ST
+               ((= (char-code ch) 7) (return))
+               (t (write-char ch out))))
+    (get-output-stream-string out)))
+
+(defun parse-osc-sequence ()
+  "Parse an OSC (Operating System Command) sequence: ESC ] Ps ; Pt ST.
+Handles color responses (OSC 10/11/12) and clipboard (OSC 52)."
+  (let ((stream (or *input-stream* *standard-input*)))
+    ;; Read the parameter number
+    (let ((num 0))
+      (loop for c = (read-char stream nil nil)
+            while c
+            do (cond
+                 ((digit-char-p c)
+                  (setf num (+ (* num 10) (digit-char-p c))))
+                 ((char= c #\;)
+                  ;; Now read the payload until ST
+                  (let ((payload (%read-until-st stream)))
+                    (%ilog "parse-osc: num=~D payload='~A'" num payload)
+                    (return-from parse-osc-sequence
+                      (case num
+                        ;; OSC 10: foreground color response
+                        (10 (make-instance 'foreground-color-msg :color payload))
+                        ;; OSC 11: background color response
+                        (11 (make-instance 'background-color-msg :color payload))
+                        ;; OSC 12: cursor color response
+                        (12 (make-instance 'cursor-color-msg :color payload))
+                        ;; OSC 52: clipboard response
+                        (52 (parse-osc52-payload payload))
+                        (otherwise
+                         (%ilog "parse-osc: unhandled OSC ~D" num)
+                         nil)))))
+                 (t
+                  ;; Unexpected char, consume until ST
+                  (%read-until-st stream)
+                  (return-from parse-osc-sequence nil))))
+      nil)))
+
+(defun parse-osc52-payload (payload)
+  "Parse OSC 52 clipboard payload: selection;base64-content.
+Returns a clipboard-msg with decoded content."
+  (let ((semi-pos (position #\; payload)))
+    (if semi-pos
+        (let* ((b64 (subseq payload (1+ semi-pos)))
+               (content (handler-case
+                            (cl-base64:base64-string-to-string b64)
+                          (error () b64))))
+          (%ilog "parse-osc52: decoded clipboard content (~D chars)" (length content))
+          (make-clipboard-msg :content content))
+        ;; No semicolon — malformed, return raw
+        (make-clipboard-msg :content payload))))
+
+;;; ---------- DCS sequence parsing ----------
+
+(defun parse-dcs-sequence ()
+  "Parse a DCS (Device Control String) sequence: ESC P ... ST.
+Handles XTVERSION response: DCS >| version ST."
+  (let ((stream (or *input-stream* *standard-input*)))
+    (let ((ch (read-char stream nil nil)))
+      (cond
+        ;; XTVERSION response: ESC P >| version-string ST
+        ((and ch (char= ch #\>))
+         (let ((next (read-char stream nil nil)))
+           (if (and next (char= next #\|))
+               (let ((version (%read-until-st stream)))
+                 (%ilog "parse-dcs: XTVERSION='~A'" version)
+                 (make-terminal-version-msg :version version))
+               ;; Not XTVERSION, consume until ST
+               (progn
+                 (%read-until-st stream)
+                 nil))))
+        (t
+         ;; Unknown DCS, consume until ST
+         (%read-until-st stream)
+         nil)))))

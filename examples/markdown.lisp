@@ -92,12 +92,12 @@ You can mix `code`, **bold**, *italic*, and [links](https://common-lisp.net) in 
 
 ;;; Update
 
-(defmethod tui:update ((model markdown-model) (msg tui:key-msg))
-  (let ((key (tui:key-msg-key msg)))
+(defmethod tui:update ((model markdown-model) (msg tui:key-press-msg))
+  (let ((key (tui:key-event-code msg)))
     (cond
       ;; Quit on 'q' or Ctrl+C
       ((or (and (characterp key) (char= key #\q))
-           (and (characterp key) (char= key #\c) (tui:key-msg-ctrl msg)))
+           (and (characterp key) (char= key #\c) (tui:mod-contains (tui:key-event-mod msg) tui:+mod-ctrl+)))
        (values model (tui:quit-cmd)))
 
       ;; Change style with number keys
@@ -133,7 +133,7 @@ You can mix `code`, **bold**, *italic*, and [links](https://common-lisp.net) in 
          (style-name (string-capitalize (symbol-name style)))
          (footer (format nil "~%~%Current style: ~A | Press 1-4 to change style, 'q' to quit"
                         style-name)))
-    (concatenate 'string rendered footer)))
+    (tui:make-view (concatenate 'string rendered footer))))
 
 ;;; Main
 

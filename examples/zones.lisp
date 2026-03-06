@@ -29,14 +29,14 @@
   nil)
 
 ;;; Update (CLOS message dispatch)
-(defmethod tui:update-message ((model zones-model) (msg tui:key-msg))
-  (let ((key (tui:key-msg-key msg)))
+(defmethod tui:update-message ((model zones-model) (msg tui:key-press-msg))
+  (let ((key (tui:key-event-code msg)))
     (cond
       ((and (characterp key) (char= key #\q)) (values model (tui:quit-cmd)))
-      ((and (tui:key-msg-ctrl msg) (characterp key) (char= key #\c)) (values model (tui:quit-cmd)))
+      ((and (tui:mod-contains (tui:key-event-mod msg) tui:+mod-ctrl+) (characterp key) (char= key #\c)) (values model (tui:quit-cmd)))
       (t (values model nil)))))
 
-(defmethod tui:update-message ((model zones-model) (msg tui:mouse-press-event))
+(defmethod tui:update-message ((model zones-model) (msg tui:mouse-click-msg))
   (when (eql (tui:mouse-event-button msg) :left)
     ;; Check each button zone
     (let ((prefix (model-zone-prefix model)))
@@ -96,13 +96,14 @@
     (push "Press q to quit" result)
 
     ;; Wrap entire view with zone scanner
-    (tui:zone-scan (format nil "~{~A~%~}" (nreverse result)))))
+    (tui:make-view
+     (tui:zone-scan (format nil "~{~A~%~}" (nreverse result)))
+     :alt-screen t
+     :mouse-mode :cell-motion)))
 
 ;;; Main entry point
 (defun main ()
-  (let ((program (tui:make-program (make-instance 'zones-model)
-                                   :alt-screen t
-                                   :mouse :cell-motion)))
+  (let ((program (tui:make-program (make-instance 'zones-model))))
     (tui:run program)))
 
 (eval-when (:load-toplevel :execute)

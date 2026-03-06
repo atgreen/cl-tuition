@@ -16,12 +16,12 @@
   (finish-output)
   nil)
 
-(defmethod tui:update-message ((model simple-model) (msg tui:key-msg))
-  (format t "Key pressed: ~A~%" (tui:key-msg-key msg))
+(defmethod tui:update-message ((model simple-model) (msg tui:key-press-msg))
+  (format t "Key pressed: ~A~%" (tui:key-event-code msg))
   (finish-output)
-  (let ((key (tui:key-msg-key msg)))
+  (let ((key (tui:key-event-code msg)))
     (cond
-      ((and (tui:key-msg-ctrl msg) (characterp key) (char= key #\c))
+      ((and (tui:mod-contains (tui:key-event-mod msg) tui:+mod-ctrl+) (characterp key) (char= key #\c))
        (values model (tui:quit-cmd)))
       (t (values model nil)))))
 
@@ -35,16 +35,17 @@
 (defmethod tui:view ((model simple-model))
   (format t "View called: ~Dx~D~%" (model-width model) (model-height model))
   (finish-output)
-  (format nil "Hello World! ~Dx~D~%Press Ctrl+C to quit"
-          (model-width model) (model-height model)))
+  (tui:make-view
+   (format nil "Hello World! ~Dx~D~%Press Ctrl+C to quit"
+           (model-width model) (model-height model))
+   :alt-screen t
+   :mouse-mode :cell-motion))
 
 (defun main ()
   (format t "Starting program...~%")
   (finish-output)
   (tui:init-global-zone-manager)
-  (let ((program (tui:make-program (make-instance 'simple-model)
-                                   :alt-screen t
-                                   :mouse :cell-motion)))
+  (let ((program (tui:make-program (make-instance 'simple-model))))
     (format t "Running program...~%")
     (finish-output)
     (tui:run program))

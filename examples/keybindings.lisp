@@ -97,47 +97,48 @@
                                             (getf bindings :help))
                                       :separator " • "
                                       :format :inline)))
-    (with-output-to-string (s)
-      ;; Title
-      (format s "~A~%~%"
-              (colored (bold "Key Binding System Demo") :fg *fg-cyan*))
+    (make-view
+     (with-output-to-string (s)
+       ;; Title
+       (format s "~A~%~%"
+               (colored (bold "Key Binding System Demo") :fg *fg-cyan*))
 
-      ;; Status bar
-      (format s "Mode: ~A~%~%"
-              (colored (format nil "~A" mode)
-                      :fg (if (eq mode :edit) *fg-green* *fg-yellow*)))
+       ;; Status bar
+       (format s "Mode: ~A~%~%"
+               (colored (format nil "~A" mode)
+                       :fg (if (eq mode :edit) *fg-green* *fg-yellow*)))
 
-      ;; Items list
-      (format s "Select an item:~%")
-      (loop for item in items
-            for i from 0
-            do (format s "  ~A ~A~%"
-                      (if (= i sel)
-                          (colored "►" :fg *fg-green*)
-                          " ")
-                      (if (= i sel)
-                          (bold item)
-                          item)))
+       ;; Items list
+       (format s "Select an item:~%")
+       (loop for item in items
+             for i from 0
+             do (format s "  ~A ~A~%"
+                       (if (= i sel)
+                           (colored "►" :fg *fg-green*)
+                           " ")
+                       (if (= i sel)
+                           (bold item)
+                           item)))
 
-      ;; Help section
-      (format s "~%")
-      (if (eq mode :help)
-          ;; Full help
-          (progn
-            (format s "~A~%~%"
-                    (colored (bold "Available Keys:") :fg *fg-bright-blue*))
-            (format s "~A~%"
-                    (keybindings-help (list (getf bindings :quit)
-                                            (getf bindings :up)
-                                            (getf bindings :down)
-                                            (getf bindings :select)
-                                            (getf bindings :help)
-                                            (getf bindings :edit))
-                                      :format :full)))
-          ;; Inline help
-          (format s "~A: ~A~%"
-                  (colored "Keys" :fg *fg-bright-black*)
-                  (colored help-text :fg *fg-bright-black*))))))
+       ;; Help section
+       (format s "~%")
+       (if (eq mode :help)
+           ;; Full help
+           (progn
+             (format s "~A~%~%"
+                     (colored (bold "Available Keys:") :fg *fg-bright-blue*))
+             (format s "~A~%"
+                     (keybindings-help (list (getf bindings :quit)
+                                             (getf bindings :up)
+                                             (getf bindings :down)
+                                             (getf bindings :select)
+                                             (getf bindings :help)
+                                             (getf bindings :edit))
+                                       :format :full)))
+           ;; Inline help
+           (format s "~A: ~A~%"
+                   (colored "Keys" :fg *fg-bright-black*)
+                   (colored help-text :fg *fg-bright-black*)))))))
 
 ;;; Run the program
 (defun main ()

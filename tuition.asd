@@ -4,12 +4,13 @@
   :description "A Common Lisp library for building TUIs"
   :author "Anthony Green <green@moxielogic.com>"
   :license "MIT"
-  :version "1.3.1"
+  :version "2.0.0"
   :depends-on ("bordeaux-threads"
                "trivial-channels"
                "version-string"
                "alexandria"
-               "serapeum")
+               "serapeum"
+               "cl-base64")
   :serial t
   :components ((:module "src"
                 :components ((:file "package")
@@ -24,14 +25,17 @@
                              (:file "terminal")
                              (:file "input")
                              (:file "keybinding")
+                             (:file "cells")
                              (:file "renderer")
                              (:file "program")
+                             (:file "compositor")
                              (:file "spring")
                              (:file "markdown")
                              ;; Sub-packages
                              (:file "table")
                              (:file "list")
-                             (:file "tree")))
+                             (:file "tree")
+                             (:file "compat-v1")))
                (:module "src/components"
                 :components ((:file "textinput")
                              (:file "viewport")
@@ -42,7 +46,9 @@
                              (:file "stopwatch")
                              (:file "timer")
                              (:file "help")
-                             (:file "datepicker"))))
+                             (:file "datepicker")
+                             (:file "list")
+                             (:file "table"))))
   :in-order-to ((test-op (test-op "tuition/tests"))))
 
 (defsystem "tuition/tests"

@@ -23,11 +23,11 @@
   nil)
 
 ;;; Update (CLOS message dispatch)
-(defmethod tui:update-message ((model mouse-model) (msg tui:key-msg))
-  (let ((key (tui:key-msg-key msg)))
+(defmethod tui:update-message ((model mouse-model) (msg tui:key-press-msg))
+  (let ((key (tui:key-event-code msg)))
     (cond
       ((and (characterp key) (char= key #\q)) (values model (tui:quit-cmd)))
-      ((and (tui:key-msg-ctrl msg) (characterp key) (char= key #\c)) (values model (tui:quit-cmd)))
+      ((and (tui:mod-contains (tui:key-event-mod msg) tui:+mod-ctrl+) (characterp key) (char= key #\c)) (values model (tui:quit-cmd)))
       ((eq key :escape) (values model (tui:quit-cmd)))
       (t (values model nil)))))
 
@@ -41,20 +41,19 @@
   (if msg
       (let ((x (tui:mouse-event-x msg))
             (y (tui:mouse-event-y msg))
-            (shift (tui:mouse-event-shift msg))
-            (alt (tui:mouse-event-alt msg))
-            (ctrl (tui:mouse-event-ctrl msg))
+            (shift (tui:mod-contains (tui:mouse-event-mod msg) tui:+mod-shift+))
+            (alt (tui:mod-contains (tui:mouse-event-mod msg) tui:+mod-alt+))
+            (ctrl (tui:mod-contains (tui:mouse-event-mod msg) tui:+mod-ctrl+))
             (event-type (cond
-                          ((tui:mouse-press-event-p msg) "press")
-                          ((tui:mouse-release-event-p msg) "release")
-                          ((tui:mouse-drag-event-p msg) "drag")
-                          ((typep msg 'tui:mouse-move-event) "move")
-                          ((tui:mouse-scroll-event-p msg) "scroll")
+                          ((tui:mouse-click-msg-p msg) "press")
+                          ((tui:mouse-release-msg-p msg) "release")
+                          ((tui:mouse-motion-msg-p msg) "motion")
+                          ((tui:mouse-wheel-msg-p msg) "scroll")
                           (t "unknown")))
-            (button (when (typep msg 'tui:mouse-button-event)
+            (button (when (not (tui:mouse-wheel-msg-p msg))
                       (tui:mouse-event-button msg)))
-            (direction (when (tui:mouse-scroll-event-p msg)
-                         (tui:mouse-scroll-direction msg))))
+            (direction (when (tui:mouse-wheel-msg-p msg)
+                         (tui:mouse-wheel-direction msg))))
         (format nil "(X: ~D, Y: ~D) ~A~A~A~A~A~A"
                 x y event-type
                 (if button (format nil " ~A" button) "")
@@ -66,14 +65,15 @@
 
 ;;; View
 (defmethod tui:view ((model mouse-model))
-  (format nil "~%Do mouse stuff. When you're done press q to quit.~%~%~
+  (tui:make-view
+   (format nil "~%Do mouse stuff. When you're done press q to quit.~%~%~
                Last event: ~A~%~%"
-          (format-mouse-event (mouse-last-event model))))
+           (format-mouse-event (mouse-last-event model)))
+   :mouse-mode :all-motion))
 
 ;;; Main entry point
 (defun main ()
-  (let ((program (tui:make-program (make-instance 'mouse-model)
-                                   :mouse :all-motion)))
+  (let ((program (tui:make-program (make-instance 'mouse-model))))
     (tui:run program)))
 
 (eval-when (:load-toplevel :execute)

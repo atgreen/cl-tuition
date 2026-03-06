@@ -17,8 +17,8 @@
 (tui:defprogram countdown-model
   :slots ((seconds :initarg :seconds :accessor seconds :initform 5))
   :init  (tick-cmd)
-  :view (format nil "Hi. This program will exit in ~D seconds.~%~%To quit sooner press q or ctrl-c...~%"
-                (seconds model)))
+  :view (tui:make-view (format nil "Hi. This program will exit in ~D seconds.~%~%To quit sooner press q or ctrl-c...~%"
+                              (seconds model))))
 
 ;;; Message for timer ticks (CLOS)
 (tui:defmessage tick-msg ())
@@ -32,14 +32,14 @@
       (values model (tick-cmd))))
 
 ;;; Handle key messages with generic dispatch
-(defmethod tui:update-message ((model countdown-model) (msg tui:key-msg))
+(defmethod tui:update-message ((model countdown-model) (msg tui:key-press-msg))
   (let ((key (tui:key-string msg)))
     (cond
       ((or (string= key "q")
-           (and (tui:key-msg-ctrl msg) (char= (tui:key-msg-key msg) #\c)))
+           (and (tui:mod-contains (tui:key-event-mod msg) tui:+mod-ctrl+) (char= (tui:key-event-code msg) #\c)))
        (values model (tui:quit-cmd)))
       ;; Suspend on ctrl+z (not implemented)
-      ((and (tui:key-msg-ctrl msg) (char= (tui:key-msg-key msg) #\z))
+      ((and (tui:mod-contains (tui:key-event-mod msg) tui:+mod-ctrl+) (char= (tui:key-event-code msg) #\z))
        (values model nil))
       (t (values model nil)))))
 

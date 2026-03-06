@@ -290,19 +290,28 @@
    (background :initform nil :accessor style-background)
    (bold :initform nil :accessor style-bold)
    (italic :initform nil :accessor style-italic)
-   (underline :initform nil :accessor style-underline)
+   (underline :initform nil :accessor style-underline
+              :documentation "Underline style: nil, t/:single, :double, :curly, :dotted, :dashed")
+   (underline-color :initform nil :accessor style-underline-color
+                    :documentation "Underline color (separate from foreground)")
    (blink :initform nil :accessor style-blink)
    (reverse :initform nil :accessor style-reverse)
    (strikethrough :initform nil :accessor style-strikethrough)
    (faint :initform nil :accessor style-faint)
+   (hyperlink :initform nil :accessor style-hyperlink
+              :documentation "Hyperlink URL string")
    (padding-left :initform 0 :accessor style-padding-left)
    (padding-right :initform 0 :accessor style-padding-right)
    (padding-top :initform 0 :accessor style-padding-top)
    (padding-bottom :initform 0 :accessor style-padding-bottom)
+   (padding-char :initform #\Space :accessor style-padding-char
+                 :documentation "Character used for padding fill")
    (margin-left :initform 0 :accessor style-margin-left)
    (margin-right :initform 0 :accessor style-margin-right)
    (margin-top :initform 0 :accessor style-margin-top)
    (margin-bottom :initform 0 :accessor style-margin-bottom)
+   (margin-char :initform #\Space :accessor style-margin-char
+                :documentation "Character used for margin fill")
    (width :initform nil :accessor style-width)
    (height :initform nil :accessor style-height)
    (max-width :initform nil :accessor style-max-width)
@@ -311,34 +320,44 @@
    (align :initform :left :accessor style-align))
   (:documentation "A style definition for terminal output."))
 
-(defun make-style (&key foreground background bold italic underline
-                       blink reverse strikethrough faint
+(defun make-style (&key foreground background bold italic underline underline-color
+                       blink reverse strikethrough faint hyperlink
                        (padding 0) padding-left padding-right padding-top padding-bottom
+                       (padding-char #\Space)
                        (margin 0) margin-left margin-right margin-top margin-bottom
+                       (margin-char #\Space)
                        width height max-width max-height inline align)
-  "Create a new style with the given attributes."
+  "Create a new style with the given attributes.
+UNDERLINE can be t/:single, :double, :curly, :dotted, or :dashed.
+UNDERLINE-COLOR sets the underline color independently of foreground.
+HYPERLINK is a URL string to wrap content in an OSC 8 hyperlink.
+PADDING-CHAR and MARGIN-CHAR set the fill character for padding/margins."
   (let ((s (make-instance 'style)))
     (when foreground (setf (style-foreground s) foreground))
     (when background (setf (style-background s) background))
     (when bold (setf (style-bold s) bold))
     (when italic (setf (style-italic s) italic))
     (when underline (setf (style-underline s) underline))
+    (when underline-color (setf (style-underline-color s) underline-color))
     (when blink (setf (style-blink s) blink))
     (when reverse (setf (style-reverse s) reverse))
     (when strikethrough (setf (style-strikethrough s) strikethrough))
     (when faint (setf (style-faint s) faint))
+    (when hyperlink (setf (style-hyperlink s) hyperlink))
 
     ;; Handle padding shorthand
     (setf (style-padding-left s) (or padding-left padding))
     (setf (style-padding-right s) (or padding-right padding))
     (setf (style-padding-top s) (or padding-top padding))
     (setf (style-padding-bottom s) (or padding-bottom padding))
+    (setf (style-padding-char s) padding-char)
 
     ;; Handle margin shorthand
     (setf (style-margin-left s) (or margin-left margin))
     (setf (style-margin-right s) (or margin-right margin))
     (setf (style-margin-top s) (or margin-top margin))
     (setf (style-margin-bottom s) (or margin-bottom margin))
+    (setf (style-margin-char s) margin-char)
 
     (when width (setf (style-width s) width))
     (when height (setf (style-height s) height))
@@ -393,7 +412,8 @@ compute the final block first, then wrap it with ANSI codes."
 
     ;; If underline is requested, apply it only to non-space text, not padding.
     (when (style-underline style)
-      (setf result (apply-underline-to-text-only result)))
+      (setf result (apply-underline-to-text-only result (style-underline style)
+                                                  (style-underline-color style))))
 
     ;; Finally, collect and apply ANSI codes PER LINE so they wrap each line's
     ;; content (padding/width/height), but NOT the margins. This ensures that
@@ -439,6 +459,12 @@ compute the final block first, then wrap it with ANSI codes."
                                          lines)))
                        result)))
 
+    ;; Apply hyperlink wrapping (OSC 8)
+    (when (style-hyperlink style)
+      (let ((link-on (format nil "~C]8;;~A~C\\" #\Escape (style-hyperlink style) #\Escape))
+            (link-off (format nil "~C]8;;~C\\" #\Escape #\Escape)))
+        (setf result (format nil "~A~A~A" link-on result link-off))))
+
     ;; Apply margins last (and unstyled) so they appear as plain spacing
     ;; around the styled content.
     (when (and (not (style-inline style))
@@ -457,43 +483,60 @@ compute the final block first, then wrap it with ANSI codes."
     result))
 
 ;; Insert underline on/off only around non-space text on each line.
-(defun apply-underline-to-text-only (text)
-  (let ((on (ansi-color *underline*))
-        (off (ansi-color "24")))
+;; UNDERLINE-STYLE: t/:single, :double, :curly, :dotted, :dashed
+;; UNDERLINE-COLOR: optional underline color string
+(defun apply-underline-to-text-only (text &optional (underline-style t) underline-color)
+  (let* ((sgr-code (case underline-style
+                     ((:single t) "4")
+                     (:double "21")
+                     (:curly "4:3")
+                     (:dotted "4:4")
+                     (:dashed "4:5")
+                     (otherwise "4")))
+         (on (format nil "~C[~Am" #\Escape sgr-code))
+         (off (format nil "~C[24m" #\Escape))
+         ;; Underline color via SGR 58;2;R;G;B or 58;5;N
+         (color-on (when underline-color
+                     (let ((resolved (resolve-adaptive-color underline-color)))
+                       (cond
+                         ((and (stringp resolved) (search "38;2;" resolved))
+                          (format nil "~C[~Am" #\Escape
+                                  (concatenate 'string "58" (subseq resolved 2))))
+                         ((and (stringp resolved) (search "38;5;" resolved))
+                          (format nil "~C[~Am" #\Escape
+                                  (concatenate 'string "58" (subseq resolved 2))))
+                         (t "")))))
+         (color-off (when underline-color
+                      (format nil "~C[59m" #\Escape))))
     (format nil "~{~A~^~%~}"
             (mapcar (lambda (line)
-                      (let* ((len (length line))
-                             (start (position-if (lambda (c) (not (char= c #\Space))) line))
-                             ;; Find last non-space character index
+                      (let* ((start (position-if (lambda (c) (not (char= c #\Space))) line))
                              (last-ns (when start (position-if (lambda (c) (not (char= c #\Space))) line :from-end t)))
                              (end (when last-ns (1+ last-ns))))
                         (if (and start end (> end start))
                             (concatenate 'string
                                          (subseq line 0 start)
                                          on
+                                         (or color-on "")
                                          (subseq line start end)
                                          off
+                                         (or color-off "")
                                          (subseq line end))
                             line)))
                     (split-string-by-newline text)))))
 
 (defun apply-padding (text style)
-  "Apply padding to TEXT. Adds left/right spaces and blank lines for top/bottom.
-
-This version preserves each line's natural width (no global expansion),
-which avoids runaway trailing spaces when composing large documents."
+  "Apply padding to TEXT. Adds left/right fill chars and blank lines for top/bottom."
   (let* ((lines (split-string-by-newline text))
-         (pad-left (make-string (style-padding-left style) :initial-element #\Space))
-         (pad-right (make-string (style-padding-right style) :initial-element #\Space))
+         (pc (style-padding-char style))
+         (pad-left (make-string (style-padding-left style) :initial-element pc))
+         (pad-right (make-string (style-padding-right style) :initial-element pc))
          (padded-lines (mapcar (lambda (line)
                                  (format nil "~A~A~A" pad-left line pad-right))
                               lines)))
     (with-output-to-string (s)
-      ;; Top padding: blank lines only
       (dotimes (i (style-padding-top style)) (format s "~%"))
-      ;; Content
       (format s "~{~A~^~%~}" padded-lines)
-      ;; Bottom padding: blank lines only
       (dotimes (i (style-padding-bottom style)) (format s "~%")))))
 
 (defun apply-width-align (text style)
@@ -530,8 +573,9 @@ which avoids runaway trailing spaces when composing large documents."
 (defun apply-margin (text style)
   "Apply margins to text."
   (let* ((lines (split-string-by-newline text))
-         (margin-left (make-string (style-margin-left style) :initial-element #\Space))
-         (margin-right (make-string (style-margin-right style) :initial-element #\Space))
+         (mc (style-margin-char style))
+         (margin-left (make-string (style-margin-left style) :initial-element mc))
+         (margin-right (make-string (style-margin-right style) :initial-element mc))
          (margined-lines (mapcar (lambda (line)
                                    (format nil "~A~A~A" margin-left line margin-right))
                                 lines)))
@@ -711,6 +755,109 @@ trailing padding/separators in LTR context."
         (lrm (string (code-char #x200E)))
         (pdi (string (code-char #x2069))))
     (format nil "~A~A~A~A" lri text lrm pdi)))
+
+;;; Color utility functions
+
+(defun %hex-to-rgb (hex)
+  "Parse HEX color string (#RRGGBB or #RGB) to (values r g b)."
+  (let ((clean (string-trim '(#\#) hex)))
+    (cond
+      ((= (length clean) 6)
+       (values (parse-integer (subseq clean 0 2) :radix 16)
+               (parse-integer (subseq clean 2 4) :radix 16)
+               (parse-integer (subseq clean 4 6) :radix 16)))
+      ((= (length clean) 3)
+       (let ((r (parse-integer (string (char clean 0)) :radix 16))
+             (g (parse-integer (string (char clean 1)) :radix 16))
+             (b (parse-integer (string (char clean 2)) :radix 16)))
+         (values (* r 17) (* g 17) (* b 17))))
+      (t (values 0 0 0)))))
+
+(defun %rgb-to-hex (r g b)
+  "Convert RGB values (0-255) to hex string #RRGGBB."
+  (format nil "#~2,'0X~2,'0X~2,'0X" (round r) (round g) (round b)))
+
+(defun %rgb-to-hsl (r g b)
+  "Convert RGB (0-255) to HSL (h: 0-360, s: 0-1, l: 0-1)."
+  (let* ((rf (/ r 255.0)) (gf (/ g 255.0)) (bf (/ b 255.0))
+         (cmax (max rf gf bf))
+         (cmin (min rf gf bf))
+         (delta (- cmax cmin))
+         (l (/ (+ cmax cmin) 2.0))
+         (s (if (zerop delta) 0.0
+                (/ delta (- 1.0 (abs (- (* 2.0 l) 1.0))))))
+         (h (cond
+              ((zerop delta) 0.0)
+              ((= cmax rf) (* 60.0 (mod (/ (- gf bf) delta) 6)))
+              ((= cmax gf) (* 60.0 (+ (/ (- bf rf) delta) 2)))
+              (t (* 60.0 (+ (/ (- rf gf) delta) 4))))))
+    (values (mod h 360.0) s l)))
+
+(defun %hsl-to-rgb (h s l)
+  "Convert HSL (h: 0-360, s: 0-1, l: 0-1) to RGB (0-255)."
+  (let* ((c (* (- 1.0 (abs (- (* 2.0 l) 1.0))) s))
+         (x (* c (- 1.0 (abs (- (mod (/ h 60.0) 2) 1.0)))))
+         (m (- l (/ c 2.0))))
+    (multiple-value-bind (r1 g1 b1)
+        (cond
+          ((< h 60)  (values c x 0.0))
+          ((< h 120) (values x c 0.0))
+          ((< h 180) (values 0.0 c x))
+          ((< h 240) (values 0.0 x c))
+          ((< h 300) (values x 0.0 c))
+          (t         (values c 0.0 x)))
+      (values (round (* (+ r1 m) 255))
+              (round (* (+ g1 m) 255))
+              (round (* (+ b1 m) 255))))))
+
+(defun darken-color (hex amount)
+  "Darken a hex color by AMOUNT (0.0-1.0). Returns hex string."
+  (multiple-value-bind (r g b) (%hex-to-rgb hex)
+    (multiple-value-bind (h s l) (%rgb-to-hsl r g b)
+      (let ((new-l (%clamp (* l (- 1.0 amount)) 0.0 1.0)))
+        (multiple-value-bind (nr ng nb) (%hsl-to-rgb h s new-l)
+          (%rgb-to-hex nr ng nb))))))
+
+(defun lighten-color (hex amount)
+  "Lighten a hex color by AMOUNT (0.0-1.0). Returns hex string."
+  (multiple-value-bind (r g b) (%hex-to-rgb hex)
+    (multiple-value-bind (h s l) (%rgb-to-hsl r g b)
+      (let ((new-l (%clamp (+ l (* (- 1.0 l) amount)) 0.0 1.0)))
+        (multiple-value-bind (nr ng nb) (%hsl-to-rgb h s new-l)
+          (%rgb-to-hex nr ng nb))))))
+
+(defun complementary-color (hex)
+  "Return the complementary color (180-degree hue rotation). Returns hex string."
+  (multiple-value-bind (r g b) (%hex-to-rgb hex)
+    (multiple-value-bind (h s l) (%rgb-to-hsl r g b)
+      (let ((new-h (mod (+ h 180.0) 360.0)))
+        (multiple-value-bind (nr ng nb) (%hsl-to-rgb new-h s l)
+          (%rgb-to-hex nr ng nb))))))
+
+(defun blend-colors (color-a color-b ratio)
+  "Linearly interpolate between COLOR-A and COLOR-B by RATIO (0.0-1.0).
+Returns hex string. RATIO 0.0 = color-a, 1.0 = color-b."
+  (multiple-value-bind (r1 g1 b1) (%hex-to-rgb color-a)
+    (multiple-value-bind (r2 g2 b2) (%hex-to-rgb color-b)
+      (let ((t1 (%clamp ratio 0.0 1.0)))
+        (%rgb-to-hex (round (+ (* r1 (- 1.0 t1)) (* r2 t1)))
+                     (round (+ (* g1 (- 1.0 t1)) (* g2 t1)))
+                     (round (+ (* b1 (- 1.0 t1)) (* b2 t1))))))))
+
+(defun light-dark (light-value dark-value &optional bg-color)
+  "Return LIGHT-VALUE or DARK-VALUE based on background luminance.
+If BG-COLOR (a hex string) is given, use its luminance to decide.
+Otherwise, use `detect-dark-background` heuristic.
+This mirrors Lipgloss v2's HasDarkBackground / light-dark pattern."
+  (let ((is-dark (if bg-color
+                     ;; Compute relative luminance; dark if < 0.5
+                     (multiple-value-bind (r g b) (%hex-to-rgb bg-color)
+                       (< (+ (* 0.299 (/ r 255.0))
+                             (* 0.587 (/ g 255.0))
+                             (* 0.114 (/ b 255.0)))
+                          0.5))
+                     (detect-dark-background))))
+    (if is-dark dark-value light-value)))
 
 ;;; Convenience functions
 

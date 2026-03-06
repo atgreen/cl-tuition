@@ -23,15 +23,15 @@
   nil)
 
 ;;; Update (CLOS style) - handle key presses via update-message
-(defmethod tui:update-message ((model counter-model) (msg tui:key-msg))
-  (let ((key (tui:key-msg-key msg)))
+(defmethod tui:update-message ((model counter-model) (msg tui:key-press-msg))
+  (let ((key (tui:key-event-code msg)))
     (cond
       ;; Quit on q
       ((and (characterp key) (char= key #\q))
        (values model (tui:quit-cmd)))
 
       ;; Quit on ctrl+c
-      ((and (tui:key-msg-ctrl msg)
+      ((and (tui:mod-contains (tui:key-event-mod msg) tui:+mod-ctrl+)
             (characterp key)
             (char= key #\c))
        (values model (tui:quit-cmd)))
@@ -57,13 +57,13 @@
 
 ;;; View - render the counter UI
 (defmethod tui:view ((model counter-model))
-  (format nil "~%  Counter: ~D~%~%~
+  (tui:make-view (format nil "~%  Counter: ~D~%~%~
                Controls:~%~
                ↑/+  Increment~%~
                ↓/-  Decrement~%~
                r    Reset~%~
                q    Quit~%~%"
-          (counter model)))
+          (counter model))))
 
 ;;; Main entry point
 (defun main ()

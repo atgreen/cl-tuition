@@ -29,14 +29,14 @@
   nil)
 
 ;;; Update (CLOS message dispatch)
-(defmethod tui:update-message ((model list-model) (msg tui:key-msg))
-  (let ((key (tui:key-msg-key msg)))
+(defmethod tui:update-message ((model list-model) (msg tui:key-press-msg))
+  (let ((key (tui:key-event-code msg)))
     (cond
       ;; Quit on q or ctrl+c
       ((and (characterp key) (char= key #\q))
        (setf (list-quitting model) t)
        (values model (tui:quit-cmd)))
-      ((and (tui:key-msg-ctrl msg) (characterp key) (char= key #\c))
+      ((and (tui:mod-contains (tui:key-event-mod msg) tui:+mod-ctrl+) (characterp key) (char= key #\c))
        (setf (list-quitting model) t)
        (values model (tui:quit-cmd)))
       ;; Select on enter
@@ -58,7 +58,7 @@
 
 ;;; View
 (defmethod tui:view ((model list-model))
-  (cond
+  (tui:make-view (cond
     ;; Show choice
     ((list-choice model)
      (format nil "~%~%  ~A? Sounds good to me.~%~%" (list-choice model)))
@@ -77,7 +77,7 @@
                        (if (= i (list-selected model)) ">" " ")
                        (1+ i)
                        item))
-       (format s "~%  ↑/k up • ↓/j down • enter select • q quit~%")))))
+       (format s "~%  ↑/k up • ↓/j down • enter select • q quit~%"))))))
 
 ;;; Main entry point
 (defun main ()

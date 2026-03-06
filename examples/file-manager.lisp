@@ -172,12 +172,12 @@
 
 (defun handle-browse-keys (model msg)
   "Handle keys in browse mode"
-  (let ((key (tui:key-msg-key msg)))
+  (let ((key (tui:key-event-code msg)))
     (cond
       ;; Quit
       ((and (characterp key) (char= key #\q))
        (values model (tui:quit-cmd)))
-      ((and (tui:key-msg-ctrl msg) (characterp key) (char= key #\c))
+      ((and (tui:mod-contains (tui:key-event-mod msg) tui:+mod-ctrl+) (characterp key) (char= key #\c))
        (values model (tui:quit-cmd)))
 
       ;; Navigation
@@ -274,7 +274,7 @@
 
 (defun handle-delete-confirm-keys (model msg)
   "Handle keys in delete confirmation mode"
-  (let ((key (tui:key-msg-key msg)))
+  (let ((key (tui:key-event-code msg)))
     (cond
       ((and (characterp key) (char= key #\y))
        (let ((item (nth (selected model) (items model))))
@@ -300,7 +300,7 @@
 
 (defun handle-mkdir-keys (model msg)
   "Handle keys in mkdir mode"
-  (let ((key (tui:key-msg-key msg)))
+  (let ((key (tui:key-event-code msg)))
     (cond
       ((eq key :enter)
        (when (> (length (input-buffer model)) 0)
@@ -335,7 +335,7 @@
 
 (defun handle-rename-keys (model msg)
   "Handle keys in rename mode"
-  (let ((key (tui:key-msg-key msg)))
+  (let ((key (tui:key-event-code msg)))
     (cond
       ((eq key :enter)
        (when (> (length (input-buffer model)) 0)
@@ -372,7 +372,7 @@
 
 ;;; Update messages dispatch
 
-(defmethod tui:update-message ((model file-manager-model) (msg tui:key-msg))
+(defmethod tui:update-message ((model file-manager-model) (msg tui:key-press-msg))
   (case (mode model)
     (:browse (handle-browse-keys model msg))
     (:delete-confirm (handle-delete-confirm-keys model msg))
@@ -395,12 +395,14 @@
 (declaim (ftype (function (file-manager-model) string) view-browse view-delete-confirm view-mkdir view-rename))
 
 (defmethod tui:view ((model file-manager-model))
-  (case (mode model)
-    (:browse (view-browse model))
-    (:delete-confirm (view-delete-confirm model))
-    (:mkdir (view-mkdir model))
-    (:rename (view-rename model))
-    (t "")))
+  (tui:make-view
+   (case (mode model)
+     (:browse (view-browse model))
+     (:delete-confirm (view-delete-confirm model))
+     (:mkdir (view-mkdir model))
+     (:rename (view-rename model))
+     (t ""))
+   :alt-screen t))
 
 (defun view-browse (model)
   "Main browse view"
@@ -553,12 +555,10 @@
   ;; These are harmless warnings about signal handling during I/O
   #+sbcl
   (handler-bind ((warning #'muffle-warning))
-    (let ((program (tui:make-program (make-instance 'file-manager-model)
-                                     :alt-screen t)))
+    (let ((program (tui:make-program (make-instance 'file-manager-model))))
       (tui:run program)))
   #-sbcl
-  (let ((program (tui:make-program (make-instance 'file-manager-model)
-                                   :alt-screen t)))
+  (let ((program (tui:make-program (make-instance 'file-manager-model))))
     (tui:run program)))
 
 (eval-when (:load-toplevel :execute)

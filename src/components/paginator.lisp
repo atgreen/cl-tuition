@@ -164,8 +164,8 @@ Returns (values start end)."
   "Update paginator with a message. Returns (values new-paginator cmd)."
   (cond
     ;; Key messages
-    ((tuition:key-msg-p msg)
-     (let ((key (tuition:key-msg-key msg)))
+    ((tuition:key-press-msg-p msg)
+     (let ((key (tuition:key-event-code msg)))
        (cond
          ;; Next page: Right arrow, l, Page Down
          ((or (eq key :right)
