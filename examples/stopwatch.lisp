@@ -37,14 +37,14 @@
     (format nil "~2,'0D:~2,'0D.~2,'0D" mins secs ms)))
 
 ;;; Update (CLOS message dispatch)
-(defmethod tui:update-message ((model stopwatch-model) (msg tui:key-msg))
-  (let ((key (tui:key-msg-key msg)))
+(defmethod tui:update-message ((model stopwatch-model) (msg tui:key-press-msg))
+  (let ((key (tui:key-event-code msg)))
     (cond
       ;; Quit on q or ctrl+c
       ((and (characterp key) (char= key #\q))
        (setf (stopwatch-quitting model) t)
        (values model (tui:quit-cmd)))
-      ((and (tui:key-msg-ctrl msg) (characterp key) (char= key #\c))
+      ((and (tui:mod-contains (tui:key-event-mod msg) tui:+mod-ctrl+) (characterp key) (char= key #\c))
        (setf (stopwatch-quitting model) t)
        (values model (tui:quit-cmd)))
       ;; Start/stop on s
@@ -89,13 +89,14 @@
                  (- (get-internal-real-time) (stopwatch-start-time model)))
               (stopwatch-elapsed model)))
          (seconds (/ current-elapsed internal-time-units-per-second)))
-    (format nil "~%Elapsed: ~A~%~%~
-                 Controls:~%~
-                 s    ~A~%~
-                 r    Reset~%~
-                 q    Quit~%~%"
-            (format-elapsed seconds)
-            (if (stopwatch-running model) "Stop" "Start"))))
+    (tui:make-view
+     (format nil "~%Elapsed: ~A~%~%~
+                  Controls:~%~
+                  s    ~A~%~
+                  r    Reset~%~
+                  q    Quit~%~%"
+             (format-elapsed seconds)
+             (if (stopwatch-running model) "Stop" "Start")))))
 
 ;;; Main entry point
 (defun main ()

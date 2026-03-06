@@ -26,8 +26,8 @@
   nil)
 
 ;;; Update (CLOS message dispatch)
-(defmethod tui:update-message ((model reflow-model) (msg tui:key-msg))
-  (let ((key (tui:key-msg-key msg)))
+(defmethod tui:update-message ((model reflow-model) (msg tui:key-press-msg))
+  (let ((key (tui:key-event-code msg)))
     (cond
       ((and (characterp key) (char= key #\q)) (values model (tui:quit-cmd)))
       ((eq key :left)
@@ -46,12 +46,12 @@
          (trunc (tui:truncate-text (tui:bold "Some styled text to truncate cleanly") 20 :ellipsis (model-ellipsis model)))
          (ind (tui:indent-lines "Line A
 Line B" 4)))
-    (format nil "~%Reflow Demo~%~%~
+    (tui:make-view (format nil "~%Reflow Demo~%~%~
                   Wrap (width ~D):~%~A~%~%~
                   Truncate (20):~%~A~%~%~
                   Indent:~%~A~%~%~
                   Controls: ←/→ adjust width • q quit~%"
-            w wrapped trunc ind)))
+            w wrapped trunc ind))))
 
 ;;; Main
 (defun main ()

@@ -30,18 +30,12 @@
 
 Parameters:
 - KEYS: A list of key specifications. Each spec is either:
-  - A character (e.g., #\\k)
-  - A keyword (e.g., :up)
-  - A list (key &key alt ctrl) for modified keys (e.g., (#\\c :ctrl t))
+  - A character (e.g., #\\k) - matches that character with no modifiers
+  - A keyword (e.g., :up) - matches that key code with no modifiers
+  - A list (key &key shift alt ctrl) for modified keys
 - HELP-KEY: Short help text for the key (e.g., \"↑/k\")
 - HELP-DESC: Description of the action (e.g., \"move up\")
-- ENABLED: Whether the binding is enabled (default t)
-
-Example:
-  (make-keybinding
-    :keys '(#\\k :up)
-    :help-key \"↑/k\"
-    :help-desc \"move up\")"
+- ENABLED: Whether the binding is enabled (default t)"
   (make-instance 'keybinding
                  :keys (if (listp keys) keys (list keys))
                  :help-key help-key
@@ -57,63 +51,52 @@ Example:
   (setf (keybinding-enabled-p binding) nil))
 
 (defun keybinding-matches (binding msg)
-  "Check if a key message matches this binding.
+  "Check if a key event matches this binding.
 Returns T if the message matches any of the binding's keys and the binding is enabled."
   (when (and (keybinding-enabled-p binding)
-             (typep msg 'key-msg))
-    (let ((msg-key (key-msg-key msg))
-          (msg-alt (key-msg-alt msg))
-          (msg-ctrl (key-msg-ctrl msg)))
+             (typep msg 'key-event))
+    (let ((msg-code (key-event-code msg))
+          (msg-mod (key-event-mod msg)))
       (some (lambda (key-spec)
-              (match-key-spec key-spec msg-key msg-alt msg-ctrl))
+              (match-key-spec key-spec msg-code msg-mod))
             (keybinding-keys binding)))))
 
-(defun match-key-spec (spec key alt ctrl)
-  "Check if a key specification matches the given key and modifiers.
+(defun match-key-spec (spec code mod)
+  "Check if a key specification matches the given code and modifier bitmask.
 Spec can be:
 - A character or keyword (exact match, no modifiers)
-- A list (key &key alt ctrl) for modified keys"
+- A list (key &key shift alt ctrl) for modified keys"
   (cond
-    ;; Simple spec: character or keyword
+    ;; Simple spec: character or keyword, must match with no modifiers
     ((or (characterp spec) (keywordp spec))
-     (and (equal spec key)
-          (not alt)
-          (not ctrl)))
+     (and (equal spec code)
+          (= mod 0)))
 
-    ;; Complex spec: (key &key alt ctrl)
+    ;; Complex spec: (key &key shift alt ctrl)
     ((listp spec)
      (let ((spec-key (first spec))
-           (spec-alt (getf (rest spec) :alt))
-           (spec-ctrl (getf (rest spec) :ctrl)))
-       (and (equal spec-key key)
-            (eq (not (null spec-alt)) (not (null alt)))
-            (eq (not (null spec-ctrl)) (not (null ctrl))))))
+           (spec-mod (make-mod :shift (getf (rest spec) :shift)
+                               :alt (getf (rest spec) :alt)
+                               :ctrl (getf (rest spec) :ctrl))))
+       (and (equal spec-key code)
+            (= spec-mod mod))))
 
     (t nil)))
 
 ;;; Key binding help generation
 
 (defun keybinding-help-line (binding)
-  "Generate a single-line help string for a keybinding.
-Returns a string in the format \"key    description\" if enabled, nil otherwise."
+  "Generate a single-line help string for a keybinding."
   (when (keybinding-enabled-p binding)
     (format nil "~A    ~A"
             (keybinding-help-key binding)
             (keybinding-help-desc binding))))
 
 (defun keybindings-help (bindings &key (separator "  ") (format :inline))
-  "Generate help text from a list of keybindings.
-
-Parameters:
-- BINDINGS: List of keybinding objects
-- SEPARATOR: String to separate multiple bindings (default \"  \")
-- FORMAT: One of :inline (single line) or :full (multi-line)
-
-Returns a formatted help string showing all enabled bindings."
+  "Generate help text from a list of keybindings."
   (let ((enabled-bindings (remove-if-not #'keybinding-enabled-p bindings)))
     (case format
       (:inline
-       ;; Single line: "key desc • key desc • key desc"
        (let ((help-strings (mapcar (lambda (b)
                                      (format nil "~A ~A"
                                              (keybinding-help-key b)
@@ -122,7 +105,6 @@ Returns a formatted help string showing all enabled bindings."
          (format nil "~{~A~^~A~}" help-strings separator)))
 
       (:full
-       ;; Multi-line with alignment
        (when enabled-bindings
          (let* ((max-key-len (reduce #'max enabled-bindings
                                      :key (lambda (b)
@@ -168,8 +150,7 @@ Returns a plist: (:up binding :down binding :left binding :right binding)."
                 :help-desc "move right")))
 
 (defun make-selection-keybindings ()
-  "Standard selection keybindings.
-Returns a plist: (:enter binding :space binding)."
+  "Standard selection keybindings."
   (list :enter (make-keybinding
                 :keys (list :enter #\Return)
                 :help-key "enter"
@@ -180,8 +161,7 @@ Returns a plist: (:enter binding :space binding)."
                 :help-desc "toggle")))
 
 (defun make-scroll-keybindings ()
-  "Standard scroll keybindings (page up/down, home/end).
-Returns a plist: (:page-up binding :page-down binding :home binding :end binding)."
+  "Standard scroll keybindings."
   (list :page-up (make-keybinding
                   :keys (list #\u :page-up '(#\u :ctrl t))
                   :help-key "pgup/u"
@@ -202,15 +182,11 @@ Returns a plist: (:page-up binding :page-down binding :home binding :end binding
 ;;; Convenience functions for matching messages
 
 (defun key-matches (msg &rest key-specs)
-  "Check if a key message matches any of the given key specifications.
-This is a convenience function for simple key matching without creating a binding.
-
-Example:
-  (key-matches msg #\\q :escape (#\\c :ctrl t))"
-  (when (typep msg 'key-msg)
-    (let ((msg-key (key-msg-key msg))
-          (msg-alt (key-msg-alt msg))
-          (msg-ctrl (key-msg-ctrl msg)))
+  "Check if a key event matches any of the given key specifications.
+This is a convenience function for simple key matching without creating a binding."
+  (when (typep msg 'key-event)
+    (let ((msg-code (key-event-code msg))
+          (msg-mod (key-event-mod msg)))
       (some (lambda (spec)
-              (match-key-spec spec msg-key msg-alt msg-ctrl))
+              (match-key-spec spec msg-code msg-mod))
             key-specs))))

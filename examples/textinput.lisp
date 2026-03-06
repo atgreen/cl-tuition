@@ -24,11 +24,11 @@
   nil)
 
 ;;; Update (CLOS message dispatch)
-(defmethod tui:update-message ((model textinput-model) (msg tui:key-msg))
-  (let ((key (tui:key-msg-key msg)))
+(defmethod tui:update-message ((model textinput-model) (msg tui:key-press-msg))
+  (let ((key (tui:key-event-code msg)))
     (cond
       ;; Quit on ctrl+c or escape
-      ((and (tui:key-msg-ctrl msg) (characterp key) (char= key #\c))
+      ((and (tui:mod-contains (tui:key-event-mod msg) tui:+mod-ctrl+) (characterp key) (char= key #\c))
        (values model (tui:quit-cmd)))
       ((eq key :escape)
        (values model (tui:quit-cmd)))
@@ -93,8 +93,9 @@
                                   (if (< cursor-pos (length input))
                                       (subseq input cursor-pos)
                                       "")))))
-    (format nil "~%What's your favorite colour?~%~%> ~A~%~%(esc to quit)~%"
-            display)))
+    (tui:make-view
+     (format nil "~%What's your favorite colour?~%~%> ~A~%~%(esc to quit)~%"
+             display))))
 
 ;;; Main entry point
 (defun main ()

@@ -247,9 +247,9 @@
   "Update viewport with a message. Returns (values new-viewport cmd)."
   (cond
     ;; Key messages - standard scrolling keys
-    ((tuition:key-msg-p msg)
-     (let ((key (tuition:key-msg-key msg))
-           (ctrl (tuition:key-msg-ctrl msg)))
+    ((tuition:key-press-msg-p msg)
+     (let ((key (tuition:key-event-code msg))
+           (ctrl (tuition:mod-contains (tuition:key-event-mod msg) tuition:+mod-ctrl+)))
        (cond
          ;; Page down: Space, Page Down, or Ctrl+F
          ((or (and (characterp key) (char= key #\Space))
@@ -304,17 +304,18 @@
          (t (values viewport nil)))))
 
     ;; Mouse wheel scrolling
-    ((tuition:mouse-msg-p msg)
+    ((tuition:mouse-wheel-msg-p msg)
      (when (viewport-mouse-wheel-enabled viewport)
-       (let ((button (tuition:mouse-msg-button msg)))
+       (let ((dir (tuition:mouse-wheel-direction msg))
+             (count (tuition:mouse-wheel-count msg)))
          (cond
-           ((eq button :wheel-up)
+           ((eq dir :up)
             (values (viewport-scroll-up viewport
-                                       (viewport-mouse-wheel-delta viewport))
+                                       (* (viewport-mouse-wheel-delta viewport) count))
                     nil))
-           ((eq button :wheel-down)
+           ((eq dir :down)
             (values (viewport-scroll-down viewport
-                                         (viewport-mouse-wheel-delta viewport))
+                                         (* (viewport-mouse-wheel-delta viewport) count))
                     nil))
            (t (values viewport nil)))))
      (values viewport nil))

@@ -23,13 +23,13 @@
   nil)
 
 ;;; Update (CLOS message dispatch)
-(defmethod tui:update-message ((model styled-model) (msg tui:key-msg))
-  (let ((key (tui:key-msg-key msg)))
+(defmethod tui:update-message ((model styled-model) (msg tui:key-press-msg))
+  (let ((key (tui:key-event-code msg)))
     (cond
       ((and (characterp key) (char= key #\q))
        (setf (model-quitting model) t)
        (values model (tui:quit-cmd)))
-      ((and (tui:key-msg-ctrl msg) (characterp key) (char= key #\c))
+      ((and (tui:mod-contains (tui:key-event-mod msg) tui:+mod-ctrl+) (characterp key) (char= key #\c))
        (setf (model-quitting model) t)
        (values model (tui:quit-cmd)))
       (t (values model nil)))))
@@ -58,7 +58,7 @@
                         :foreground tui:*fg-bright-green*
                         :bold t)))
 
-    (format nil "~A~%~%~
+    (tui:make-view (format nil "~A~%~%~
                  ~A~%~
                  ~A~%~
                  ~A~%~
@@ -78,7 +78,7 @@
             (tui:colored "Red text" :fg tui:*fg-bright-red*)
             (tui:colored "Green text" :fg tui:*fg-bright-green*)
             (tui:colored "Blue text" :fg tui:*fg-bright-blue*)
-            (tui:colored "Yellow on black" :fg tui:*fg-bright-yellow* :bg tui:*bg-black*))))
+            (tui:colored "Yellow on black" :fg tui:*fg-bright-yellow* :bg tui:*bg-black*)))))
 
 ;;; Main entry point
 (defun main ()

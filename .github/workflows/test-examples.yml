@@ -32,7 +32,7 @@ jobs:
 
       - name: Fetch Lisp dependencies
         run: |
-          ocicl install bordeaux-threads trivial-channels version-string alexandria serapeum
+          ocicl install bordeaux-threads trivial-channels version-string alexandria serapeum cl-base64
 
       - name: Upload ocicl directory
         uses: actions/upload-artifact@v4

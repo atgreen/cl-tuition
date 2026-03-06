@@ -34,12 +34,12 @@
   (tui.datepicker:datepicker-init (model-picker model)))
 
 ;;; Update
-(defmethod tui:update-message ((model datepicker-model) (msg tui:key-msg))
-  (let ((key (tui:key-msg-key msg)))
+(defmethod tui:update-message ((model datepicker-model) (msg tui:key-press-msg))
+  (let ((key (tui:key-event-code msg)))
     (cond
       ;; Quit on q or Ctrl+C
       ((or (and (characterp key) (char= key #\q))
-           (and (tui:key-msg-ctrl msg) (characterp key) (char= key #\c)))
+           (and (tui:mod-contains (tui:key-event-mod msg) tui:+mod-ctrl+) (characterp key) (char= key #\c)))
        (setf (model-quitting model) t)
        (values model (tui:quit-cmd)))
 
@@ -60,12 +60,13 @@
                              (declare (ignore sec min hour))
                              (format nil "Selected: ~D/~D/~D" month day year))
                            "No date selected")))
-    (format nil "~%  Date Picker Demo~%~%~A~%~%  ~A~%~%  ~
+    (tui:make-view
+     (format nil "~%  Date Picker Demo~%~%~A~%~%  ~A~%~%  ~
 Controls:~%  Arrow keys: Navigate days/weeks~%  [ / ]: Previous/next month~%  ~
 { / }: Previous/next year~%  Enter/Space: Select date~%  Escape: Clear selection~%  ~
 Home: Go to today~%  q: Quit~%"
-            (tui.datepicker:datepicker-view picker)
-            selected-str)))
+             (tui.datepicker:datepicker-view picker)
+             selected-str))))
 
 ;;; Main entry point
 (defun main ()

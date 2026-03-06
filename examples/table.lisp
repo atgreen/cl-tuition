@@ -23,13 +23,13 @@
   nil)
 
 ;;; Update (CLOS message dispatch)
-(defmethod tui:update-message ((model table-model) (msg tui:key-msg))
-  (let ((key (tui:key-msg-key msg)))
+(defmethod tui:update-message ((model table-model) (msg tui:key-press-msg))
+  (let ((key (tui:key-event-code msg)))
     (cond
       ((and (characterp key) (char= key #\q))
        (setf (model-quitting model) t)
        (values model (tui:quit-cmd)))
-      ((and (tui:key-msg-ctrl msg) (characterp key) (char= key #\c))
+      ((and (tui:mod-contains (tui:key-event-mod msg) tui:+mod-ctrl+) (characterp key) (char= key #\c))
        (setf (model-quitting model) t)
        (values model (tui:quit-cmd)))
       (t (values model nil)))))
@@ -53,13 +53,13 @@
                  ("3" "Charlie" "Active"))
           :border-style tui:*border-ascii*)))
 
-    (format nil "~%~A~%~%~
+    (tui:make-view (format nil "~%~A~%~%~
                  ~A~%~%~
                  ~A~%~%~
                  Press q to quit~%"
             (tui:bold "Table Examples")
             (tui.render.table:table-render languages-table)
-            (tui.render.table:table-render ascii-table))))
+            (tui.render.table:table-render ascii-table)))))
 
 ;;; Main entry point
 (defun main ()

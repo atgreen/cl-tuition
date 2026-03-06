@@ -61,8 +61,8 @@
 
 (defun list-update (list-view msg)
   "Update the list with a key message. Returns (values new-list cmd)."
-  (if (typep msg 'tuition:key-msg)
-      (let ((key (tuition:key-msg-key msg)))
+  (if (typep msg 'tuition:key-press-msg)
+      (let ((key (tuition:key-event-code msg)))
         (cond
           ;; Move up
           ((or (eq key :up) (and (characterp key) (char= key #\k)))

@@ -104,19 +104,41 @@
 (defun render-border (text border &key
                              (top t) (bottom t) (left t) (right t)
                              fg-color bg-color
+                             fg-colors
                              title (title-position :center))
   "Render text with a border around it.
    Colors are applied per-border-character to avoid being cleared by content resets.
+   FG-COLORS, if provided, is a list of color strings applied as a gradient
+   across all border characters (overrides fg-color for border chars).
    TITLE, if provided, is placed on the top border line.
    TITLE-POSITION is :LEFT, :CENTER, or :RIGHT (default :CENTER)."
   (let* ((lines (split-string-by-newline text))
          (max-width (apply #'max (mapcar #'visible-length lines)))
          (result nil)
-         ;; Helper to color a border character if color is specified
+         ;; Gradient state
+         (gradient-idx 0)
+         ;; Helper to color a single border character, optionally with gradient
+         (color-border-char (lambda (str)
+                              (cond
+                                (fg-colors
+                                 (let ((c (nth (mod gradient-idx (length fg-colors)) fg-colors)))
+                                   (incf gradient-idx)
+                                   (colored str :fg c :bg bg-color)))
+                                ((or fg-color bg-color)
+                                 (colored str :fg fg-color :bg bg-color))
+                                (t str))))
+         ;; Helper to color a multi-char border string
          (color-border (lambda (str)
-                        (if (or fg-color bg-color)
-                            (colored str :fg fg-color :bg bg-color)
-                            str))))
+                        (if fg-colors
+                            ;; Apply gradient per-character
+                            (with-output-to-string (s)
+                              (loop for ch across str do
+                                (let ((c (nth (mod gradient-idx (length fg-colors)) fg-colors)))
+                                  (incf gradient-idx)
+                                  (write-string (colored (string ch) :fg c :bg bg-color) s))))
+                            (if (or fg-color bg-color)
+                                (colored str :fg fg-color :bg bg-color)
+                                str)))))
 
     ;; Top border
     (when top
@@ -124,7 +146,7 @@
               (if title
                   ;; Build top border with title embedded
                   (let* ((title-vis-len (visible-length title))
-                         (available (- max-width 2)) ; at least 1 border char each side
+                         (available (- max-width 2))
                          (truncated-title (if (> title-vis-len available)
                                               (serapeum:take (min (length title) available) title)
                                               title))
@@ -135,28 +157,29 @@
                                      (:right (max 1 (- max-width t-len 1)))
                                      (otherwise (max 1 (floor (- max-width t-len) 2)))))
                          (right-pad (max 1 (- max-width t-len left-pad))))
-                    (format nil "~A~A~A~A~A"
-                            (if left (border-top-left border) "")
-                            (make-string left-pad :initial-element border-char)
-                            truncated-title
-                            (make-string right-pad :initial-element border-char)
-                            (if right (border-top-right border) "")))
+                    (concatenate 'string
+                                 (if left (funcall color-border-char (border-top-left border)) "")
+                                 (funcall color-border (make-string left-pad :initial-element border-char))
+                                 truncated-title
+                                 (funcall color-border (make-string right-pad :initial-element border-char))
+                                 (if right (funcall color-border-char (border-top-right border)) "")))
                   ;; Normal top border without title
-                  (format nil "~A~A~A"
-                          (if left (border-top-left border) "")
-                          (make-string max-width :initial-element
-                                       (char (border-top border) 0))
-                          (if right (border-top-right border) "")))))
-        (push (funcall color-border top-line) result)))
+                  (concatenate 'string
+                               (if left (funcall color-border-char (border-top-left border)) "")
+                               (funcall color-border (make-string max-width :initial-element
+                                                                  (char (border-top border) 0)))
+                               (if right (funcall color-border-char (border-top-right border)) "")))))
+        (push top-line result)))
 
     ;; Content with left/right borders
     (dolist (line lines)
       (let* ((visible-len (visible-length line))
              (padding (- max-width visible-len))
-             ;; Color the border characters and padding separately from content
-             (left-part (if left (funcall color-border (border-left border)) ""))
-             (pad-part (funcall color-border (make-string padding :initial-element #\Space)))
-             (right-part (if right (funcall color-border (border-right border)) "")))
+             (left-part (if left (funcall color-border-char (border-left border)) ""))
+             (pad-part (if (> padding 0)
+                           (make-string padding :initial-element #\Space)
+                           ""))
+             (right-part (if right (funcall color-border-char (border-right border)) "")))
         (push (format nil "~A~A~A~A"
                      left-part
                      line
@@ -166,12 +189,13 @@
 
     ;; Bottom border
     (when bottom
-      (let ((bottom-line (format nil "~A~A~A"
-                                (if left (border-bottom-left border) "")
-                                (make-string max-width :initial-element
-                                            (char (border-bottom border) 0))
-                                (if right (border-bottom-right border) ""))))
-        (push (funcall color-border bottom-line) result)))
+      (let ((bottom-line
+              (concatenate 'string
+                           (if left (funcall color-border-char (border-bottom-left border)) "")
+                           (funcall color-border (make-string max-width :initial-element
+                                                              (char (border-bottom border) 0)))
+                           (if right (funcall color-border-char (border-bottom-right border)) ""))))
+        (push bottom-line result)))
 
     ;; Return the formatted result
     (format nil "~{~A~^~%~}" (nreverse result))))

@@ -184,10 +184,10 @@
        (values input nil)))
 
     ;; Key messages
-    ((and (typep msg 'tuition:key-msg) (textinput-focused input))
-     (let ((key (tuition:key-msg-key msg))
-           (alt (tuition:key-msg-alt msg))
-           (ctrl (tuition:key-msg-ctrl msg))
+    ((and (typep msg 'tuition:key-press-msg) (textinput-focused input))
+     (let ((key (tuition:key-event-code msg))
+           (alt (tuition:mod-contains (tuition:key-event-mod msg) tuition:+mod-alt+))
+           (ctrl (tuition:mod-contains (tuition:key-event-mod msg) tuition:+mod-ctrl+))
            (value (textinput-value input))
            (pos (textinput-cursor-pos input)))
         (cond

@@ -60,8 +60,8 @@
                 (make-instance 'tick-msg))
               nil)))
 
-(defmethod tui:update-message ((model showcase-model) (msg tui:key-msg))
-  (let ((key (tui:key-msg-key msg)))
+(defmethod tui:update-message ((model showcase-model) (msg tui:key-press-msg))
+  (let ((key (tui:key-event-code msg)))
     (if (and (characterp key) (char= key #\q))
         (values model (tui:quit-cmd))
         (values model nil))))
@@ -153,27 +153,29 @@
          (footer (tui:render-styled footer-style "Press 'q' to quit")))
 
     ;; Assemble everything
-    (tui:join-vertical tui:+center+
-                      ""
-                      title-box
-                      subtitle
-                      ""
-                      progress-label
-                      progress-bar
-                      status-text
-                      ""
-                      info-box
-                      ""
-                      stats
-                      ""
-                      footer
-                      "")))
+    (tui:make-view
+     (tui:join-vertical tui:+center+
+                       ""
+                       title-box
+                       subtitle
+                       ""
+                       progress-label
+                       progress-bar
+                       status-text
+                       ""
+                       info-box
+                       ""
+                       stats
+                       ""
+                       footer
+                       "")
+     :alt-screen t)))
 
 ;;; Entry point
 (defun main ()
   "Run the showcase example."
   (let* ((model (make-instance 'showcase-model))
-         (program (tui:make-program model :alt-screen t)))
+         (program (tui:make-program model)))
     (tui:run program)))
 
 (eval-when (:load-toplevel :execute)

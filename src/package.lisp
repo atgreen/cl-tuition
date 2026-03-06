@@ -7,7 +7,7 @@
 (defpackage #:tuition
   (:use #:cl)
   (:nicknames #:tui)
-  (:documentation "Tuition: A Common Lisp library for building TUIs.")
+  (:documentation "Tuition v2: A Common Lisp library for building TUIs.")
   (:export
    ;; Core protocol
    #:model
@@ -50,63 +50,19 @@
    #:quit-msg
    #:quit-msg-p
    #:make-quit-msg
-   #:key-msg
-   #:key-msg-p
-   #:key-msg-key
-   #:key-msg-alt
-   #:key-msg-ctrl
-    #:make-key-msg
-   #:key-string
    #:paste-msg
    #:paste-msg-p
    #:paste-msg-text
-    #:make-paste-msg
+   #:make-paste-msg
    #:window-size-msg
    #:window-size-msg-p
    #:window-size-msg-width
    #:window-size-msg-height
-    #:make-window-size-msg
-   #:mouse-msg
-   #:mouse-msg-p
-   #:mouse-msg-x
-   #:mouse-msg-y
-   #:mouse-msg-button
-   #:mouse-msg-action
-   #:mouse-msg-shift
-   #:mouse-msg-alt
-   #:mouse-msg-ctrl
-   #:make-mouse-msg
-
-   ;; New mouse event hierarchy
-   #:mouse-event
-   #:mouse-event-p
-   #:mouse-event-x
-   #:mouse-event-y
-   #:mouse-event-button
-   #:mouse-event-shift
-   #:mouse-event-alt
-   #:mouse-event-ctrl
-   #:mouse-button-event
-   #:mouse-press-event
-   #:mouse-press-event-p
-   #:make-mouse-press-event
-   #:mouse-release-event
-   #:mouse-release-event-p
-   #:make-mouse-release-event
-   #:mouse-drag-event
-   #:mouse-drag-event-p
-   #:make-mouse-drag-event
-   #:mouse-move-event
-   #:make-mouse-move-event
-   #:mouse-scroll-event
-   #:mouse-scroll-event-p
-   #:mouse-scroll-direction
-   #:mouse-scroll-count
-   #:make-mouse-scroll-event
+   #:make-window-size-msg
    #:tick-msg
    #:tick-msg-p
    #:tick-msg-time
-    #:make-tick-msg
+   #:make-tick-msg
    #:suspend-msg
    #:suspend-msg-p
    #:make-suspend-msg
@@ -114,11 +70,207 @@
    #:resume-msg-p
    #:make-resume-msg
 
+   ;; Modifier bitmask system
+   #:+mod-shift+
+   #:+mod-alt+
+   #:+mod-ctrl+
+   #:+mod-meta+
+   #:+mod-hyper+
+   #:+mod-super+
+   #:+mod-caps-lock+
+   #:+mod-num-lock+
+   #:mod-contains
+   #:make-mod
+
+   ;; Key events (v2)
+   #:key-event
+   #:key-event-code
+   #:key-event-mod
+   #:key-event-text
+   #:key-event-shifted-code
+   #:key-event-base-code
+   #:key-event-repeat-p
+   #:key-press-msg
+   #:key-press-msg-p
+   #:make-key-press-msg
+   #:key-release-msg
+   #:key-release-msg-p
+   #:make-key-release-msg
+   #:key-string
+
+   ;; Mouse events (v2)
+   #:mouse-event
+   #:mouse-event-p
+   #:mouse-event-x
+   #:mouse-event-y
+   #:mouse-event-button
+   #:mouse-event-mod
+   #:mouse-click-msg
+   #:mouse-click-msg-p
+   #:make-mouse-click-msg
+   #:mouse-release-msg
+   #:mouse-release-msg-p
+   #:make-mouse-release-msg
+   #:mouse-motion-msg
+   #:mouse-motion-msg-p
+   #:make-mouse-motion-msg
+   #:mouse-wheel-msg
+   #:mouse-wheel-msg-p
+   #:mouse-wheel-direction
+   #:mouse-wheel-count
+   #:make-mouse-wheel-msg
+
+   ;; Focus events (v2)
+   #:focus-msg
+   #:focus-msg-p
+   #:make-focus-msg
+   #:blur-msg
+   #:blur-msg-p
+   #:make-blur-msg
+
+   ;; Keyboard enhancements
+   #:keyboard-enhancements-msg
+   #:keyboard-enhancements-msg-p
+   #:keyboard-enhancements-flags
+
+   ;; Paste start/end messages (v2)
+   #:paste-start-msg
+   #:paste-start-msg-p
+   #:make-paste-start-msg
+   #:paste-end-msg
+   #:paste-end-msg-p
+   #:make-paste-end-msg
+
+   ;; Color query messages
+   #:background-color-msg
+   #:background-color-msg-color
+   #:foreground-color-msg
+   #:foreground-color-msg-color
+   #:cursor-color-msg
+   #:cursor-color-msg-color
+   #:make-cursor-color-msg
+   #:cursor-position-msg
+   #:cursor-position-msg-x
+   #:cursor-position-msg-y
+
+   ;; Terminal query messages (v2)
+   #:terminal-version-msg
+   #:terminal-version-msg-version
+   #:make-terminal-version-msg
+   #:mode-report-msg
+   #:mode-report-msg-mode
+   #:mode-report-msg-setting
+   #:make-mode-report-msg
+
+   ;; Clipboard messages (v2)
+   #:clipboard-msg
+   #:clipboard-msg-p
+   #:clipboard-msg-content
+   #:make-clipboard-msg
+
    ;; Commands
    #:quit-cmd
    #:tick
+   #:request-background-color-cmd
+   #:request-foreground-color-cmd
+   #:request-cursor-color-cmd
+   #:request-terminal-version-cmd
+   #:request-mode-report-cmd
 
-   ;; Program options are keyword args to MAKE-PROGRAM
+   ;; Clipboard commands (v2)
+   #:set-clipboard-cmd
+   #:read-clipboard-cmd
+   #:set-primary-clipboard-cmd
+
+   ;; Raw escape command (v2)
+   #:raw-cmd
+
+   ;; Key event utilities (v2)
+   #:keystroke
+
+   ;; Declarative view (v2)
+   #:view-state
+   #:view-state-p
+   #:make-view
+   #:view-state-content
+   #:view-state-alt-screen
+   #:view-state-mouse-mode
+   #:view-state-report-focus
+   #:view-state-window-title
+   #:view-state-cursor
+   #:view-state-foreground-color
+   #:view-state-background-color
+   #:view-state-keyboard-enhancements
+   #:view-state-on-mouse
+   #:view-state-disable-bracketed-paste
+   #:view-state-unicode-mode
+   #:cursor
+   #:make-cursor
+   #:cursor-x
+   #:cursor-y
+   #:cursor-shape
+   #:cursor-color
+   #:cursor-blink
+
+   ;; Cell-based rendering (v2)
+   #:cell
+   #:make-cell
+   #:blank-cell
+   #:cell-char
+   #:cell-width
+   #:cell-fg
+   #:cell-bg
+   #:cell-attrs
+   #:cell-link
+   #:+attr-bold+
+   #:+attr-italic+
+   #:+attr-underline+
+   #:+attr-blink+
+   #:+attr-reverse+
+   #:+attr-strikethrough+
+   #:+attr-faint+
+   #:screen-buffer
+   #:make-screen-buffer
+   #:screen-buffer-ref
+   #:screen-buffer-width
+   #:screen-buffer-height
+   #:screen-buffer-clear
+   #:screen-buffer-resize
+   #:parse-styled-string
+
+   ;; Compositor / Layer / Canvas (v2)
+   #:layer
+   #:make-layer
+   #:layer-id
+   #:layer-content
+   #:layer-x
+   #:layer-y
+   #:layer-z
+   #:layer-width
+   #:layer-height
+   #:layer-children
+   #:layer-set-id
+   #:layer-set-x
+   #:layer-set-y
+   #:layer-set-z
+   #:layer-add-children
+   #:layer-get-layer
+   #:layer-max-z
+   #:canvas
+   #:make-canvas
+   #:canvas-width
+   #:canvas-height
+   #:canvas-cell-at
+   #:canvas-set-cell
+   #:canvas-compose
+   #:canvas-render
+   #:compositor
+   #:make-compositor
+   #:compositor-add-layers
+   #:compositor-hit
+   #:compositor-get-layer
+   #:compositor-render
+   #:compositor-refresh
 
    ;; Styling
    #:style
@@ -128,6 +280,23 @@
    #:italic
    #:underline
    #:colored
+
+   ;; Extended underline styles (v2)
+   #:style-underline-color
+
+   ;; Hyperlink support (v2)
+   #:style-hyperlink
+
+   ;; Custom fill characters (v2)
+   #:style-padding-char
+   #:style-margin-char
+
+   ;; Color utilities (v2)
+   #:darken-color
+   #:lighten-color
+   #:complementary-color
+   #:blend-colors
+   #:light-dark
 
    ;; Reflow utilities
    #:wrap-text
@@ -242,6 +411,27 @@
    ;; Terminal utilities
    #:get-terminal-size
    #:set-terminal-title
+   #:set-cursor-shape
+   #:set-cursor-color
+   #:request-background-color
+   #:request-foreground-color
+   #:enable-kitty-keyboard
+   #:disable-kitty-keyboard
+   #:request-kitty-keyboard
+
+   ;; Unicode mode (v2)
+   #:enable-unicode-mode
+   #:disable-unicode-mode
+
+   ;; Terminal queries (v2)
+   #:request-terminal-version
+   #:request-cursor-color
+   #:request-mode-report
+
+   ;; Clipboard (v2)
+   #:set-clipboard
+   #:read-clipboard
+   #:set-primary-clipboard
 
    ;; Conditions and error handling
    #:tuition-error

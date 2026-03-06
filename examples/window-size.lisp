@@ -23,13 +23,13 @@
   nil)
 
 ;;; Update (CLOS message dispatch)
-(defmethod tui:update-message ((model window-size-model) (msg tui:key-msg))
-  (let ((key (tui:key-msg-key msg)))
+(defmethod tui:update-message ((model window-size-model) (msg tui:key-press-msg))
+  (let ((key (tui:key-event-code msg)))
     (cond
       ;; Quit on q, ctrl+c, or escape
       ((and (characterp key) (char= key #\q))
        (values model (tui:quit-cmd)))
-      ((and (tui:key-msg-ctrl msg) (characterp key) (char= key #\c))
+      ((and (tui:mod-contains (tui:key-event-mod msg) tui:+mod-ctrl+) (characterp key) (char= key #\c))
        (values model (tui:quit-cmd)))
       ((eq key :escape)
        (values model (tui:quit-cmd)))
@@ -42,9 +42,9 @@
 
 ;;; View
 (defmethod tui:view ((model window-size-model))
-  (format nil "~%When you're done press q to quit. Press any other key to query the window-size.~%~%~
+  (tui:make-view (format nil "~%When you're done press q to quit. Press any other key to query the window-size.~%~%~
                ~@[Current size: ~A~%~%~]"
-          (window-size model)))
+          (window-size model))))
 
 ;;; Main entry point
 (defun main ()

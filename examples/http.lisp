@@ -41,12 +41,12 @@
         (make-instance 'error-msg :error (format nil "~A" e))))))
 
 ;;; Update (CLOS message dispatch)
-(defmethod tui:update-message ((model http-model) (msg tui:key-msg))
-  (let ((key (tui:key-msg-key msg)))
+(defmethod tui:update-message ((model http-model) (msg tui:key-press-msg))
+  (let ((key (tui:key-event-code msg)))
     (cond
       ;; Quit on q, ctrl+c, or escape
       ((and (characterp key) (char= key #\q)) (values model (tui:quit-cmd)))
-      ((and (tui:key-msg-ctrl msg) (characterp key) (char= key #\c)) (values model (tui:quit-cmd)))
+      ((and (tui:mod-contains (tui:key-event-mod msg) tui:+mod-ctrl+) (characterp key) (char= key #\c)) (values model (tui:quit-cmd)))
       ((eq key :escape) (values model (tui:quit-cmd)))
       (t (values model nil)))))
 
@@ -61,23 +61,24 @@
 ;;; View
 (defmethod tui:view ((model http-model))
   (let ((url (http-url model)))
-    (cond
-      ((http-error model)
-       (format nil "~%Checking ~A... something went wrong: ~A~%~%"
-               url (http-error model)))
+    (tui:make-view
+     (cond
+       ((http-error model)
+        (format nil "~%Checking ~A... something went wrong: ~A~%~%"
+                url (http-error model)))
 
-      ((http-status model)
-       (format nil "~%Checking ~A... ~D ~A~%~%"
-               url
-               (http-status model)
-               (case (http-status model)
-                 (200 "OK")
-                 (404 "Not Found")
-                 (500 "Internal Server Error")
-                 (t "Unknown"))))
+       ((http-status model)
+        (format nil "~%Checking ~A... ~D ~A~%~%"
+                url
+                (http-status model)
+                (case (http-status model)
+                  (200 "OK")
+                  (404 "Not Found")
+                  (500 "Internal Server Error")
+                  (t "Unknown"))))
 
-      (t
-       (format nil "~%Checking ~A...~%~%" url)))))
+       (t
+        (format nil "~%Checking ~A...~%~%" url))))))
 
 ;;; Main entry point
 (defun main ()

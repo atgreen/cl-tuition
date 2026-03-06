@@ -39,7 +39,7 @@
     (format nil "[~A] ~3D%" bar (floor (* percent 100)))))
 
 ;;; Update (CLOS message dispatch)
-(defmethod tui:update-message ((model progress-model) (msg tui:key-msg))
+(defmethod tui:update-message ((model progress-model) (msg tui:key-press-msg))
   (declare (ignore msg))
   (values model (tui:quit-cmd)))
 
@@ -57,9 +57,9 @@
 
 ;;; View
 (defmethod tui:view ((model progress-model))
-  (format nil "~%  ~A~%~%  Press any key to quit~%"
+  (tui:make-view (format nil "~%  ~A~%~%  Press any key to quit~%"
           (render-progress-bar (progress-percent model)
-                              (progress-width model))))
+                              (progress-width model)))))
 
 ;;; Main entry point
 (defun main ()

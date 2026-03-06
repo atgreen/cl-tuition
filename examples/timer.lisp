@@ -46,14 +46,14 @@
           (timer-timeout model))))
 
 ;;; Update (CLOS message dispatch)
-(defmethod tui:update-message ((model timer-model) (msg tui:key-msg))
-  (let ((key (tui:key-msg-key msg)))
+(defmethod tui:update-message ((model timer-model) (msg tui:key-press-msg))
+  (let ((key (tui:key-event-code msg)))
     (cond
       ;; Quit on q or ctrl+c
       ((and (characterp key) (char= key #\q))
        (setf (timer-quitting model) t)
        (values model (tui:quit-cmd)))
-      ((and (tui:key-msg-ctrl msg) (characterp key) (char= key #\c))
+      ((and (tui:mod-contains (tui:key-event-mod msg) tui:+mod-ctrl+) (characterp key) (char= key #\c))
        (setf (timer-quitting model) t)
        (values model (tui:quit-cmd)))
       ;; Start/stop on s
@@ -112,15 +112,16 @@
 ;;; View
 (defmethod tui:view ((model timer-model))
   (let ((remaining (get-remaining-time model)))
-    (if (<= remaining 0)
-        (format nil "~%All done!~%")
-        (format nil "~%Exiting in ~,2F seconds~%~%~
-                     Controls:~%~
-                     s    ~A~%~
-                     r    Reset~%~
-                     q    Quit~%~%"
-                remaining
-                (if (timer-running model) "Stop" "Start")))))
+    (tui:make-view
+     (if (<= remaining 0)
+         (format nil "~%All done!~%")
+         (format nil "~%Exiting in ~,2F seconds~%~%~
+                      Controls:~%~
+                      s    ~A~%~
+                      r    Reset~%~
+                      q    Quit~%~%"
+                 remaining
+                 (if (timer-running model) "Stop" "Start"))))))
 
 ;;; Main entry point
 (defun main ()
