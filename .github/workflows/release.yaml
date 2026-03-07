@@ -38,7 +38,7 @@ jobs:
         with:
           tag: ${{ github.ref_name }}
           name: Release ${{ github.ref_name }}
-          bodyFile: docs/release-notes/RELEASE-NOTES-${{ steps.get_version.outputs.version }}.md
+          bodyFile: doc/release-notes/RELEASE-NOTES-${{ steps.get_version.outputs.version }}.md
           artifacts: |
             tuition-${{ steps.get_version.outputs.version }}.tar.gz
           allowUpdates: true

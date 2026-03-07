@@ -47,7 +47,7 @@ Tuition now includes experimental Windows support through the Windows Console AP
 - Windows 10 version 1511 or later
 - Windows Terminal recommended for best experience
 
-See `docs/WINDOWS.md` for detailed documentation.
+See `doc/WINDOWS.md` for detailed documentation.
 
 ## Bug Fixes and Improvements
 
