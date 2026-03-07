@@ -275,6 +275,7 @@
    ;; Styling
    #:style
    #:make-style
+   #:copy-style
    #:render-styled
    #:bold
    #:italic
@@ -286,6 +287,9 @@
 
    ;; Hyperlink support (v2)
    #:style-hyperlink
+
+   ;; Style accessors used by table renderer
+   #:style-width
 
    ;; Custom fill characters (v2)
    #:style-padding-char
