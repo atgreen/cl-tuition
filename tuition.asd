@@ -55,8 +55,18 @@
   :description "Test system for Tuition"
   :author "Anthony Green <green@moxielogic.com>"
   :license "MIT"
-  :depends-on ("tuition")
+  :depends-on ("tuition" "fiveam")
+  :serial t
   :components ((:module "tests"
-                :components ((:file "basic"))))
+                :components ((:file "basic")
+                             (:file "golden")
+                             (:file "test-style")
+                             (:file "test-borders")
+                             (:file "test-layout")
+                             (:file "test-list")
+                             (:file "test-table")
+                             (:file "test-tree")
+                             (:file "test-input")
+                             (:file "test-text"))))
   :perform (test-op (o c)
                     (symbol-call :tuition-tests :run-tests)))

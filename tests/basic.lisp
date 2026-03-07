@@ -4,58 +4,51 @@
 ;;;
 ;;; Copyright (C) 2025  Anthony Green <green@moxielogic.com>
 ;;;
-;;;; Basic smoke tests for Tuition
+;;;; Basic smoke tests for Tuition (FiveAM)
 
 (defpackage #:tuition-tests
   (:use #:cl #:tuition)
+  (:import-from #:fiveam
+                #:def-suite #:in-suite #:test #:is #:signals #:finishes)
   (:export #:run-tests)
-  (:documentation "Basic smoke tests for Tuition TUI library."))
+  (:documentation "Test suite for Tuition TUI library."))
 
 (in-package #:tuition-tests)
 
+(def-suite tuition-tests
+  :description "Top-level test suite for Tuition.")
+
+(def-suite basic-tests
+  :description "Basic smoke tests."
+  :in tuition-tests)
+
+(in-suite basic-tests)
+
+(test visible-length-plain-text
+  "visible-length returns correct length for plain text."
+  (is (= 5 (visible-length "hello"))))
+
+(test visible-length-with-ansi
+  "visible-length ignores ANSI escape codes."
+  (is (= 5 (visible-length (format nil "~C[31mhello~C[0m" #\Escape #\Escape)))))
+
+(test wrap-text-basic
+  "wrap-text breaks text at word boundaries."
+  (is (string= (format nil "hello~%world")
+               (wrap-text "hello world" 5))))
+
+(test border-exists
+  "Predefined border objects exist."
+  (is (not (null *border-normal*))))
+
+(test make-style-returns-style
+  "make-style returns a style object."
+  (is (typep (make-style :bold t) 'style)))
+
 (defun run-tests ()
-  "Run basic smoke tests. Returns T if all pass, signals error otherwise."
-  (let ((failures 0))
-    (flet ((test (name form expected)
-             (handler-case
-                 (let ((result form))
-                   (unless (equal result expected)
-                     (format t "FAIL: ~A~%  Expected: ~S~%  Got: ~S~%" name expected result)
-                     (incf failures)))
-               (error (e)
-                 (format t "ERROR in ~A: ~A~%" name e)
-                 (incf failures)))))
-
-      ;; Test visible-length with plain text
-      (test "visible-length plain text"
-            (visible-length "hello")
-            5)
-
-      ;; Test visible-length with ANSI codes
-      (test "visible-length with ANSI"
-            (visible-length (format nil "~C[31mhello~C[0m" #\Escape #\Escape))
-            5)
-
-      ;; Test wrap-text basic
-      (test "wrap-text basic"
-            (wrap-text "hello world" 5)
-            (format nil "hello~%world"))
-
-      ;; Test border rendering
-      (test "border exists"
-            (not (null *border-normal*))
-            t)
-
-      ;; Test style creation
-      (test "make-style returns style"
-            (typep (make-style :bold t) 'style)
-            t)
-
-      ;; Summary
-      (if (zerop failures)
-          (progn
-            (format t "~%All tests passed!~%")
-            t)
-          (progn
-            (format t "~%~D test(s) failed.~%" failures)
-            (error "Tests failed"))))))
+  "Run all Tuition tests. Signals error on failure."
+  (let ((results (5am:run 'tuition-tests)))
+    (5am:explain! results)
+    (unless (5am:results-status results)
+      (error "Tests failed"))
+    t))

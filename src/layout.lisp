@@ -127,7 +127,7 @@
       ((eq position :right) space)
       ((numberp position)
        (let ((pos (max 0 (min 1 position))))
-         (floor (* space pos))))
+         (round (* space pos))))
       (t 0))))
 
 (defun align-text (text width position &key whitespace-char whitespace-fg)
@@ -164,7 +164,7 @@
          (format nil "~A~A~A" left-str text right-str)))
 
       ((numberp position)
-       (let* ((left-pad-cols (floor (* padding-cols position)))
+       (let* ((left-pad-cols (round (* padding-cols position)))
               (right-pad-cols (- padding-cols left-pad-cols))
               (left-pad-chars (if (> ws-width 0) (floor left-pad-cols ws-width) 0))
               (right-pad-chars (if (> ws-width 0) (floor right-pad-cols ws-width) 0))
