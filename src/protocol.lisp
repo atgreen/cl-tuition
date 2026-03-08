@@ -538,11 +538,11 @@ to transition the terminal.  Called by the renderer before content diffing."
 
 (defun batch (&rest cmds)
   "Batch multiple commands to run concurrently (filters out NILs)."
-  (serapeum:keep #'identity cmds))
+  (remove nil cmds))
 
 (defun cmd-sequence (&rest cmds)
   "Sequence multiple commands to run in order (filters out NILs)."
-  (cons :sequence (serapeum:keep #'identity cmds)))
+  (cons :sequence (remove nil cmds)))
 
 (defun tick (duration &optional (fn nil fn-supplied-p))
   "Create a command that waits for DURATION seconds then produces a message.
