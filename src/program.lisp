@@ -227,17 +227,20 @@ Terminal modes are applied declaratively from the first view-state render."
     (close-tty-stream)))
 
 (defun event-loop (program)
-  "Main event processing loop with batched message processing."
+  "Main event processing loop with batched message processing.
+Uses non-blocking getmsg with sleep to avoid trivial-channels mutex
+issues with timed recvmsg on SBCL."
   (loop while (program-running program) do
     (handler-case
-        (let ((first-msg (trivial-channels:recvmsg (msg-channel program) 0.1)))
-          (when first-msg
-            (let ((messages (list first-msg)))
-              (loop for msg = (trivial-channels:getmsg (msg-channel program))
-                    while msg
-                    do (push msg messages))
-              (setf messages (nreverse messages))
-              (handle-messages-batch program messages))))
+        (let ((first-msg (trivial-channels:getmsg (msg-channel program))))
+          (if first-msg
+              (let ((messages (list first-msg)))
+                (loop for msg = (trivial-channels:getmsg (msg-channel program))
+                      while msg
+                      do (push msg messages))
+                (setf messages (nreverse messages))
+                (handle-messages-batch program messages))
+              (sleep 0.005)))
       (error (e)
         (handle-error :event-loop e)))))
 
