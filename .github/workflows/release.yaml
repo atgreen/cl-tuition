@@ -7,11 +7,12 @@ on:
 
 jobs:
   release:
-    permissions: write-all
+    permissions:
+      contents: write
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
 
       - name: Extract version number
         id: get_version
@@ -34,7 +35,7 @@ jobs:
           mv tuition-${VERSION}.tar.gz cl-tuition/
 
       - name: Create GitHub release
-        uses: ncipollo/release-action@v1
+        uses: ncipollo/release-action@339a81892b84b4eeb0f6e744e4574d79d0d9b8dd # v1
         with:
           tag: ${{ github.ref_name }}
           name: Release ${{ github.ref_name }}
