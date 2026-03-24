@@ -7,6 +7,9 @@ on:
     branches: [master, main]
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   # ========================================
   # Fetch dependencies on Linux using ocicl
@@ -75,11 +78,15 @@ jobs:
 
       - name: Install deps (Linux)
         if: runner.os == 'Linux'
-        run: ${{ matrix.deps }}
+        env:
+          INSTALL_CMD: ${{ matrix.deps }}
+        run: $INSTALL_CMD
 
       - name: Install deps (macOS)
         if: runner.os == 'macOS'
-        run: ${{ matrix.deps }}
+        env:
+          INSTALL_CMD: ${{ matrix.deps }}
+        run: $INSTALL_CMD
 
       - name: Install deps (Windows)
         if: runner.os == 'Windows'
