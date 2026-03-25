@@ -710,7 +710,6 @@ This is a pragmatic subset covering CJK, Hangul, Hiragana/Katakana, and fullwidt
                       (#x23E9 #x23EC)
                       (#x23F0 #x23F3)
                       (#x25FD #x25FE)
-                      (#x2600 #x2605)
                       (#x2614 #x2615)
                       (#x2648 #x2653)
                       (#x2E80 #x2FFF)  ; CJK Radicals/Symbols
