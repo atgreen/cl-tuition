@@ -67,36 +67,59 @@
 (defun make-style-dark ()
   "Create a dark theme style (default)."
   (make-markdown-style
-   :h1-color :bright-cyan
-   :h2-color :bright-blue
-   :h3-color :blue
-   :code-color :bright-yellow
-   :code-block-color :white
-   :code-block-bg :black
-   :link-color :bright-blue
-   :quote-color :bright-black))
+   :h1-color (make-complete-color :truecolor "#5FD7D7")
+   :h2-color (make-complete-color :truecolor "#5F87FF")
+   :h3-color (make-complete-color :truecolor "#5F87D7")
+   :code-color (make-complete-color :truecolor "#FFFF5F")
+   :code-block-color (make-complete-color :truecolor "#E4E4E4")
+   :code-block-bg (make-complete-color :truecolor "#1C1C1C")
+   :link-color (make-complete-color :truecolor "#5F87FF")
+   :quote-color (make-complete-color :truecolor "#808080")))
 
 (defun make-style-light ()
   "Create a light theme style."
   (make-markdown-style
-   :h1-color :blue
-   :h2-color :cyan
-   :h3-color :blue
-   :code-color :magenta
-   :code-block-color :black
-   :code-block-bg :white
-   :link-color :blue
-   :quote-color :black))
+   :h1-color (make-complete-color :truecolor "#005FD7")
+   :h2-color (make-complete-color :truecolor "#0087AF")
+   :h3-color (make-complete-color :truecolor "#005FD7")
+   :code-color (make-complete-color :truecolor "#AF00AF")
+   :code-block-color (make-complete-color :truecolor "#1C1C1C")
+   :code-block-bg (make-complete-color :truecolor "#F5F5F5")
+   :link-color (make-complete-color :truecolor "#005FD7")
+   :quote-color (make-complete-color :truecolor "#303030")))
 
 (defun make-style-pink ()
   "Create a pink theme style."
   (make-markdown-style
-   :h1-color :bright-magenta
-   :h2-color :magenta
-   :h3-color :bright-magenta
-   :code-color :bright-cyan
-   :link-color :bright-magenta
-   :quote-color :magenta))
+   :h1-color (make-complete-color :truecolor "#FF5FAF")
+   :h2-color (make-complete-color :truecolor "#AF00AF")
+   :h3-color (make-complete-color :truecolor "#FF5FAF")
+   :code-color (make-complete-color :truecolor "#5FD7D7")
+   :link-color (make-complete-color :truecolor "#FF5FAF")
+   :quote-color (make-complete-color :truecolor "#AF00AF")))
+
+(defun make-markdown-style-from-colors (&key accent secondary string comment muted)
+  "Create a markdown style from theme colors.
+   Each argument can be a hex string, complete-color, keyword, or nil.
+   ACCENT: used for headers and links.
+   SECONDARY: used for h2/h3 (falls back to ACCENT).
+   STRING: used for inline code (falls back to ACCENT).
+   COMMENT: used for code blocks and quotes.
+   MUTED: used for quote prefix color (falls back to COMMENT)."
+  (let ((accent-c (if (stringp accent) (make-complete-color :truecolor accent) accent))
+        (secondary-c (if (stringp secondary) (make-complete-color :truecolor secondary) secondary))
+        (string-c (if (stringp string) (make-complete-color :truecolor string) string))
+        (comment-c (if (stringp comment) (make-complete-color :truecolor comment) comment))
+        (muted-c (if (stringp muted) (make-complete-color :truecolor muted) muted)))
+    (make-markdown-style
+     :h1-color (or accent-c :bright-cyan)
+     :h2-color (or secondary-c accent-c :bright-blue)
+     :h3-color (or secondary-c accent-c :blue)
+     :code-color (or string-c accent-c :bright-yellow)
+     :code-block-color nil
+     :code-block-bg nil
+     :link-color (or accent-c :bright-blue)
+     :quote-color (or muted-c comment-c :bright-black))))
 
 (defun make-style-ascii ()
   "Create an ASCII-only style (no colors)."
@@ -195,10 +218,19 @@ Internal helper for markdown rendering."
 ;;; Styling Helper
 
 (defun resolve-markdown-color (color-spec)
-  "Resolve a markdown color keyword to actual ANSI code."
+  "Resolve a markdown color spec to an ANSI SGR parameter string.
+   Accepts complete-color objects, hex strings, ANSI keywords, or raw SGR strings."
   (cond
     ((null color-spec) nil)
-    ((stringp color-spec) color-spec)  ; Already a code
+    ;; Complete color — resolve via terminal capability detection
+    ((typep color-spec 'complete-color)
+     (resolve-color color-spec))
+    ;; Hex string — create complete-color and resolve
+    ((and (stringp color-spec)
+          (plusp (length color-spec))
+          (char= (char color-spec 0) #\#))
+     (resolve-color (make-complete-color :truecolor color-spec)))
+    ;; ANSI keyword
     ((keywordp color-spec)
      (case color-spec
        (:black *fg-black*)
@@ -218,11 +250,11 @@ Internal helper for markdown rendering."
        (:bright-cyan *fg-bright-cyan*)
        (:bright-white *fg-bright-white*)
        ;; :bold and :italic are style attributes, not colors
-       ;; Return nil so they don't get added to color codes
        (:bold nil)
        (:italic nil)
        (t nil)))
-    (t color-spec)))  ; Pass through other types
+    ;; Raw SGR string — pass through
+    (t color-spec)))
 
 (defun style-text (text &key color bg bold italic underline)
   "Apply ANSI styling to text. Helper function for markdown rendering."

@@ -77,7 +77,12 @@
   (:documentation "Complete color specification with values for each color profile."))
 
 (defun make-complete-color (&key truecolor ansi256 ansi)
-  "Create a complete color with specific values for different terminal profiles."
+  "Create a complete color with specific values for different terminal profiles.
+   If only TRUECOLOR is given, ANSI256 and ANSI are auto-computed."
+  (when (and truecolor (null ansi256))
+    (setf ansi256 (hex-to-ansi256 truecolor)))
+  (when (and truecolor (null ansi))
+    (setf ansi (%ansi16-index-to-sgr (hex-to-ansi16 truecolor))))
   (make-instance 'complete-color
                  :truecolor truecolor
                  :ansi256 ansi256
@@ -195,6 +200,28 @@
     ;; Complete color or regular color
     (t (resolve-color color))))
 
+;;; Convenience functions to resolve colors to full escape sequences
+
+(defun resolve-color-foreground (color)
+  "Resolve COLOR to a full foreground ANSI escape sequence string.
+   Accepts complete-color, complete-adaptive-color, adaptive-color, hex string,
+   or raw SGR parameter string. Returns a string like ESC[38;5;141m."
+  (let ((code (resolve-adaptive-color color)))
+    (when code
+      (let ((fg-code (as-foreground-code code)))
+        (when fg-code
+          (format nil "~C[~Am" #\Escape fg-code))))))
+
+(defun resolve-color-background (color)
+  "Resolve COLOR to a full background ANSI escape sequence string.
+   Accepts complete-color, complete-adaptive-color, adaptive-color, hex string,
+   or raw SGR parameter string. Returns a string like ESC[48;5;239m."
+  (let ((code (resolve-adaptive-color color)))
+    (when code
+      (let ((bg-code (as-background-code code)))
+        (when bg-code
+          (format nil "~C[~Am" #\Escape bg-code))))))
+
 ;;; Ensure color codes are in the correct foreground/background form
 
 (defun %maybe-parse-int (s)
@@ -213,6 +240,8 @@
     ((not (stringp code)) code)
     ;; truecolor 48;2 -> 38;2
     ((search "48;2;" code) (%replace-first code "48;2;" "38;2;"))
+    ;; 256-color 48;5 -> 38;5
+    ((search "48;5;" code) (%replace-first code "48;5;" "38;5;"))
     ;; otherwise coerce numeric background to foreground
     (t
      (let ((n (%maybe-parse-int code)))
@@ -228,6 +257,8 @@
     ((not (stringp code)) code)
     ;; truecolor 38;2 -> 48;2
     ((search "38;2;" code) (%replace-first code "38;2;" "48;2;"))
+    ;; 256-color 38;5 -> 48;5
+    ((search "38;5;" code) (%replace-first code "38;5;" "48;5;"))
     ;; otherwise coerce numeric foreground to background
     (t
      (let ((n (%maybe-parse-int code)))
@@ -786,6 +817,142 @@ trailing padding/separators in LTR context."
         (lrm (string (code-char #x200E)))
         (pdi (string (code-char #x2069))))
     (format nil "~A~A~A~A" lri text lrm pdi)))
+
+;;; RGB to palette conversion
+
+(defparameter *ansi-16-rgb*
+  #((0 0 0)         ; 0  black
+    (128 0 0)       ; 1  red
+    (0 128 0)       ; 2  green
+    (128 128 0)     ; 3  yellow
+    (0 0 128)       ; 4  blue
+    (128 0 128)     ; 5  magenta
+    (0 128 128)     ; 6  cyan
+    (192 192 192)   ; 7  white
+    (128 128 128)   ; 8  bright black
+    (255 0 0)       ; 9  bright red
+    (0 255 0)       ; 10 bright green
+    (255 255 0)     ; 11 bright yellow
+    (0 0 255)       ; 12 bright blue
+    (255 0 255)     ; 13 bright magenta
+    (0 255 255)     ; 14 bright cyan
+    (255 255 255))  ; 15 bright white
+  "Standard ANSI 16-color palette as RGB triples.")
+
+;; The 6x6x6 color cube channel values (indices 16-231)
+(defparameter *ansi-cube-values* #(0 95 135 175 215 255)
+  "The six intensity levels used by the 256-color cube (indices 16-231).")
+
+(defun %color-distance (r1 g1 b1 r2 g2 b2)
+  "Weighted Euclidean color distance (redmean approximation).
+   Cheap perceptual approximation that weights green highest."
+  (let* ((dr (- r1 r2))
+         (dg (- g1 g2))
+         (db (- b1 b2))
+         (rmean (/ (+ r1 r2) 2.0)))
+    (+ (* (+ 2.0 (/ rmean 256.0)) dr dr)
+       (* 4.0 dg dg)
+       (* (+ 2.0 (/ (- 255.0 rmean) 256.0)) db db))))
+
+(defun %nearest-cube-index (v)
+  "Find the nearest 6x6x6 cube channel index for value V (0-255)."
+  (cond
+    ((<= v 47)  0)
+    ((<= v 115) 1)
+    ((<= v 155) 2)
+    ((<= v 195) 3)
+    ((<= v 235) 4)
+    (t           5)))
+
+(defun %rgb-to-ansi256 (r g b)
+  "Find the nearest 256-color palette index for RGB values (0-255 each).
+   Checks the 6x6x6 cube, grayscale ramp, and base 16 colors."
+  (let ((best-index 0)
+        (best-dist most-positive-single-float))
+    ;; Check the 6x6x6 color cube (indices 16-231)
+    (let* ((ri (%nearest-cube-index r))
+           (gi (%nearest-cube-index g))
+           (bi (%nearest-cube-index b))
+           (cr (aref *ansi-cube-values* ri))
+           (cg (aref *ansi-cube-values* gi))
+           (cb (aref *ansi-cube-values* bi))
+           (idx (+ 16 (* 36 ri) (* 6 gi) bi))
+           (d (%color-distance r g b cr cg cb)))
+      (when (< d best-dist)
+        (setf best-dist d best-index idx)))
+    ;; Check the grayscale ramp (indices 232-255): 24 shades from 8 to 238 step 10
+    (let ((gray (round (/ (+ r g b) 3.0))))
+      (let* ((gi (max 0 (min 23 (round (/ (- gray 8) 10.0)))))
+             (gv (+ 8 (* gi 10)))
+             (d (%color-distance r g b gv gv gv)))
+        (when (< d best-dist)
+          (setf best-dist d best-index (+ 232 gi)))))
+    ;; Check the base 16 colors (indices 0-15)
+    (loop for i from 0 below 16
+          for rgb = (aref *ansi-16-rgb* i)
+          for d = (%color-distance r g b
+                                   (first rgb) (second rgb) (third rgb))
+          when (< d best-dist)
+            do (setf best-dist d best-index i))
+    best-index))
+
+(defun %rgb-to-ansi16 (r g b)
+  "Find the nearest 16-color ANSI index (0-15) for RGB values (0-255 each)."
+  (let ((best-index 0)
+        (best-dist most-positive-single-float))
+    (loop for i from 0 below 16
+          for rgb = (aref *ansi-16-rgb* i)
+          for d = (%color-distance r g b
+                                   (first rgb) (second rgb) (third rgb))
+          when (< d best-dist)
+            do (setf best-dist d best-index i))
+    best-index))
+
+(defun %ansi16-index-to-sgr (n)
+  "Convert a 16-color index (0-15) to an SGR foreground parameter string.
+   0-7 map to 30-37, 8-15 map to 90-97."
+  (if (< n 8)
+      (format nil "~D" (+ 30 n))
+      (format nil "~D" (+ 82 n))))
+
+(defun rgb-to-ansi256 (r g b)
+  "Find the nearest 256-color palette index for RGB values (0-255 each)."
+  (%rgb-to-ansi256 r g b))
+
+(defun rgb-to-ansi16 (r g b)
+  "Find the nearest 16-color palette index (0-15) for RGB values (0-255 each)."
+  (%rgb-to-ansi16 r g b))
+
+(defun hex-to-ansi256 (hex)
+  "Find the nearest 256-color palette index for a hex color string."
+  (multiple-value-bind (r g b) (%hex-to-rgb hex)
+    (%rgb-to-ansi256 r g b)))
+
+(defun hex-to-ansi16 (hex)
+  "Find the nearest 16-color palette index (0-15) for a hex color string."
+  (multiple-value-bind (r g b) (%hex-to-rgb hex)
+    (%rgb-to-ansi16 r g b)))
+
+(defun ansi256-to-hex (index)
+  "Convert a 256-color palette index to a hex color string."
+  (cond
+    ;; Base 16 colors
+    ((< index 16)
+     (let ((rgb (aref *ansi-16-rgb* index)))
+       (%rgb-to-hex (first rgb) (second rgb) (third rgb))))
+    ;; 6x6x6 cube (indices 16-231)
+    ((< index 232)
+     (let* ((idx (- index 16))
+            (ri (floor idx 36))
+            (gi (floor (mod idx 36) 6))
+            (bi (mod idx 6)))
+       (%rgb-to-hex (aref *ansi-cube-values* ri)
+                    (aref *ansi-cube-values* gi)
+                    (aref *ansi-cube-values* bi))))
+    ;; Grayscale ramp (indices 232-255)
+    (t
+     (let ((v (+ 8 (* (- index 232) 10))))
+       (%rgb-to-hex v v v)))))
 
 ;;; Color utility functions
 

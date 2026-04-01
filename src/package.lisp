@@ -330,6 +330,15 @@
    #:color-rgb
    #:parse-hex-color
 
+   ;; Color conversion
+   #:rgb-to-ansi256
+   #:rgb-to-ansi16
+   #:hex-to-ansi256
+   #:hex-to-ansi16
+   #:ansi256-to-hex
+   #:as-foreground-code
+   #:as-background-code
+
    ;; Adaptive colors
    #:adaptive-color
    #:make-adaptive-color
@@ -341,6 +350,10 @@
    #:make-complete-color
    #:complete-adaptive-color
    #:make-complete-adaptive-color
+   #:resolve-color
+   #:resolve-adaptive-color
+   #:resolve-color-foreground
+   #:resolve-color-background
 
    ;; Layout utilities
    #:join-horizontal
@@ -403,6 +416,7 @@
    ;; Markdown rendering
    #:markdown-style
    #:make-markdown-style
+   #:make-markdown-style-from-colors
    #:make-style-dark
    #:make-style-light
    #:make-style-pink

@@ -208,6 +208,82 @@
       (is (= 0 g))
       (is (and (> b 100) (< b 160))))))
 
+;;; --- RGB to palette conversion ---
+
+(test rgb-to-ansi256-pure-red
+  "rgb-to-ansi256 maps pure red to 196."
+  (is (= 196 (rgb-to-ansi256 255 0 0))))
+
+(test rgb-to-ansi256-pure-green
+  "rgb-to-ansi256 maps pure green to 46."
+  (is (= 46 (rgb-to-ansi256 0 255 0))))
+
+(test rgb-to-ansi256-pure-blue
+  "rgb-to-ansi256 maps pure blue to 21."
+  (is (= 21 (rgb-to-ansi256 0 0 255))))
+
+(test rgb-to-ansi256-white
+  "rgb-to-ansi256 maps white to 231."
+  (is (= 231 (rgb-to-ansi256 255 255 255))))
+
+(test rgb-to-ansi256-black
+  "rgb-to-ansi256 maps black to 16 (cube black) or 0 (base black)."
+  (is (member (rgb-to-ansi256 0 0 0) '(0 16))))
+
+(test rgb-to-ansi256-mid-gray
+  "rgb-to-ansi256 maps mid gray to a grayscale index."
+  (let ((idx (rgb-to-ansi256 128 128 128)))
+    ;; Should land in the grayscale ramp (232-255) or base palette
+    (is (>= idx 0))
+    (is (<= idx 255))))
+
+(test rgb-to-ansi16-pure-red
+  "rgb-to-ansi16 maps pure red to bright red (9)."
+  (is (= 9 (rgb-to-ansi16 255 0 0))))
+
+(test rgb-to-ansi16-black
+  "rgb-to-ansi16 maps black to 0."
+  (is (= 0 (rgb-to-ansi16 0 0 0))))
+
+(test rgb-to-ansi16-white
+  "rgb-to-ansi16 maps white to bright white (15)."
+  (is (= 15 (rgb-to-ansi16 255 255 255))))
+
+(test hex-to-ansi256-red
+  "hex-to-ansi256 maps #FF0000 to 196."
+  (is (= 196 (hex-to-ansi256 "#FF0000"))))
+
+(test hex-to-ansi256-shorthand
+  "hex-to-ansi256 handles 3-digit hex."
+  (is (= 196 (hex-to-ansi256 "#F00"))))
+
+(test hex-to-ansi16-blue
+  "hex-to-ansi16 maps #0000FF to bright blue (12)."
+  (is (= 12 (hex-to-ansi16 "#0000FF"))))
+
+(test ansi256-to-hex-round-trip-cube
+  "ansi256-to-hex converts cube colors correctly."
+  ;; Index 196 = red (r=5, g=0, b=0) = RGB(255, 0, 0)
+  (is (string= "#FF0000" (ansi256-to-hex 196))))
+
+(test ansi256-to-hex-grayscale
+  "ansi256-to-hex converts grayscale correctly."
+  ;; Index 232 = darkest gray = RGB(8, 8, 8)
+  (is (string= "#080808" (ansi256-to-hex 232))))
+
+(test make-complete-color-auto-populate
+  "make-complete-color auto-computes ansi256 and ansi from truecolor."
+  (let ((c (make-complete-color :truecolor "#FF0000")))
+    (is (string= "#FF0000" (tuition::complete-truecolor c)))
+    (is (= 196 (tuition::complete-ansi256 c)))
+    (is (stringp (tuition::complete-ansi c)))))
+
+(test make-complete-color-explicit-override
+  "make-complete-color respects explicitly provided ansi256/ansi."
+  (let ((c (make-complete-color :truecolor "#FF0000" :ansi256 160 :ansi "31")))
+    (is (= 160 (tuition::complete-ansi256 c)))
+    (is (string= "31" (tuition::complete-ansi c)))))
+
 ;;; --- make-style ---
 
 (test make-style-defaults
