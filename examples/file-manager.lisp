@@ -475,7 +475,7 @@
                                  :fg tui:*fg-bright-black*))))))))
         ;; Render the border around the content with fixed width and height
         (let* ((lines (tui:split-string-by-newline content))
-               (max-content-width (- box-width 4))
+               (max-content-width (max 0 (- box-width 4)))
                ;; Pad lines to fixed width
                (padded-lines (mapcar (lambda (line)
                                       (let* ((vis-len (tui:visible-length line))
