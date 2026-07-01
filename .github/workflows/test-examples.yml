@@ -35,7 +35,10 @@ jobs:
 
       - name: Fetch Lisp dependencies
         run: |
-          ocicl install bordeaux-threads trivial-channels version-string alexandria serapeum cl-base64 fiveam
+          # parse-declarations-1.0 is required by serapeum's subsystems
+          # (serapeum/macro-tools, serapeum/iter); ocicl only resolves the
+          # main system's :depends-on, so it must be listed explicitly.
+          ocicl install bordeaux-threads trivial-channels version-string alexandria serapeum cl-base64 fiveam parse-declarations-1.0
 
       - name: Upload ocicl directory
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
