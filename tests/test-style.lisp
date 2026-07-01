@@ -303,3 +303,26 @@
     (is (= 2 (tuition::style-padding-right s)))
     (is (= 2 (tuition::style-padding-top s)))
     (is (= 2 (tuition::style-padding-bottom s)))))
+
+;;; --- resolve-color: hex strings are resolved, not passed through ---
+
+(test resolve-color-parses-hex
+  "A hex color string resolves to a real SGR code, not the raw hex."
+  (let ((code (resolve-color "#FF0000")))
+    (is (stringp code))
+    (is (not (equal code "#FF0000"))))
+  ;; Short form and no-leading-# both resolve too.
+  (is (not (equal "#F00"  (resolve-color "#F00"))))
+  (is (not (equal "FF0000" (resolve-color "FF0000")))))
+
+(test resolve-color-passthrough-non-hex
+  "Non-hex strings (already-resolved SGR codes) pass through unchanged."
+  (is (equal "31" (resolve-color "31")))
+  (is (equal "38;2;1;2;3" (resolve-color "38;2;1;2;3")))
+  (is (equal "38;5;196" (resolve-color "38;5;196"))))
+
+(test render-styled-hex-foreground-valid
+  "A bare hex foreground renders a valid escape (no malformed ESC[#...m)."
+  (let ((out (render-styled (make-style :foreground "#00FF00") "X")))
+    (is (not (search "[#" out)))
+    (is (find #\Escape out))))

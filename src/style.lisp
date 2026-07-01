@@ -158,6 +158,36 @@
     ;; Fallback to monochrome
     (t :monochrome)))
 
+(defun %hex-color-rgb (color)
+  "If COLOR is a #RGB or #RRGGBB hex string (leading # optional), return its
+components as (values R G B); otherwise (values nil nil nil)."
+  (when (stringp color)
+    (let ((s (string-trim '(#\Space #\Tab) color)))
+      (when (and (plusp (length s)) (char= (char s 0) #\#))
+        (setf s (subseq s 1)))
+      (flet ((hexd (c) (digit-char-p c 16)))
+        (cond
+          ((and (= (length s) 6) (every #'hexd s))
+           (values (parse-integer (subseq s 0 2) :radix 16)
+                   (parse-integer (subseq s 2 4) :radix 16)
+                   (parse-integer (subseq s 4 6) :radix 16)))
+          ((and (= (length s) 3) (every #'hexd s))
+           (values (* 17 (parse-integer (subseq s 0 1) :radix 16))
+                   (* 17 (parse-integer (subseq s 1 2) :radix 16))
+                   (* 17 (parse-integer (subseq s 2 3) :radix 16))))
+          (t (values nil nil nil)))))))
+
+(defun resolve-hex-color (color)
+  "Resolve a hex color string to an SGR foreground parameter code, downgrading
+to the terminal's best supported mode (truecolor, 256, or 16).  Returns nil if
+COLOR is not a hex string, so callers can fall back to a passthrough."
+  (multiple-value-bind (r g b) (%hex-color-rgb color)
+    (when r
+      (case (detect-color-support)
+        (:truecolor (parse-hex-color color))
+        (:256color  (color-256 (%rgb-to-ansi256 r g b)))
+        (otherwise  (%ansi16-index-to-sgr (%rgb-to-ansi16 r g b)))))))
+
 (defun resolve-color (color)
   "Resolve a color to an ANSI code string based on terminal capabilities.
    Handles complete-color objects by selecting the best available option."
@@ -178,8 +208,9 @@
               (complete-ansi color)))
          (t (complete-ansi color)))))
 
-    ;; Regular string color
-    (t color)))
+    ;; Regular string color: resolve hex strings (#RGB/#RRGGBB) to a real SGR
+    ;; code; pass through anything else (already-resolved SGR codes, etc.).
+    (t (or (resolve-hex-color color) color))))
 
 (defun resolve-adaptive-color (color)
   "Resolve an adaptive color to actual color based on terminal background."
