@@ -68,6 +68,7 @@
                              (:file "test-tree")
                              (:file "test-input")
                              (:file "test-text")
-                             (:file "test-progress"))))
+                             (:file "test-progress")
+                             (:file "test-textarea"))))
   :perform (test-op (o c)
                     (symbol-call :tuition-tests :run-tests)))

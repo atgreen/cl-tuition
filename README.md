@@ -425,6 +425,12 @@ Use components when you want common interactions without re‑implementing state
 ;; Text input
 (tuition.components.textinput:textinput-view
   (tuition.components.textinput:make-textinput :placeholder "Type here"))
+
+;; Textarea (multi-line; :soft-wrap and :dynamic-height are optional)
+(tuition.components.textarea:textarea-view
+  (tuition.components.textarea:make-textarea
+    :width 40 :height 6 :placeholder "Write a message..."
+    :soft-wrap t :dynamic-height t))
 ```
 
 ## Zones (mouse areas)
