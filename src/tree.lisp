@@ -16,6 +16,13 @@
    #:tree-root
    #:tree-child
 
+   ;; Styling / layout
+   #:tree-enumerator-style
+   #:tree-indenter-style
+   #:tree-root-style
+   #:tree-item-style
+   #:tree-indent
+
    ;; Enumerators
    #:default-enumerator
    #:rounded-enumerator
@@ -31,15 +38,26 @@
    (children :initform nil :accessor tree-children)
    (enumerator :initform #'default-enumerator :accessor tree-enumerator)
    (enumerator-style :initform nil :accessor tree-enumerator-style)
+   (indenter-style :initform nil :accessor tree-indenter-style)
    (root-style :initform nil :accessor tree-root-style)
    (item-style :initform nil :accessor tree-item-style)
    (indent :initform 0 :accessor tree-indent))
   (:documentation "A renderable tree structure."))
 
-(defun make-tree (&key root)
-  "Create a new tree with optional root text."
+(defun make-tree (&key root enumerator-style indenter-style root-style item-style
+                        (indent 0))
+  "Create a new tree with optional root text.
+
+ENUMERATOR-STYLE styles the branch connectors; INDENTER-STYLE styles the
+continuation/indentation guides (ported from lipgloss tree #446).  INDENT is a
+left margin (spaces) applied to every line."
   (let ((tree (make-instance 'tui-tree)))
     (when root (setf (tree-root-text tree) root))
+    (when enumerator-style (setf (tree-enumerator-style tree) enumerator-style))
+    (when indenter-style (setf (tree-indenter-style tree) indenter-style))
+    (when root-style (setf (tree-root-style tree) root-style))
+    (when item-style (setf (tree-item-style tree) item-style))
+    (setf (tree-indent tree) (max 0 indent))
     tree))
 
 (defun tree-root (tree root-text)
@@ -82,14 +100,21 @@
           (push child flat)))
     (nreverse flat)))
 
-(defun render-child-item (child depth prefix enum-func enum-style item-style
-                          last-child-p result)
+(defun render-child-item (child depth prefix enum-func enum-style indenter-style
+                          item-style last-child-p result)
   "Render a single child item (string or named tree) with proper branch/continuation."
   (multiple-value-bind (branch continuation)
       (funcall enum-func depth last-child-p)
     (let ((styled-branch (if enum-style
                               (tuition:render-styled enum-style branch)
-                              branch)))
+                              branch))
+          ;; Style the indentation guides when INDENTER-STYLE is set.
+          (styled-cont (if indenter-style
+                           (tuition:render-styled indenter-style continuation)
+                           continuation))
+          (styled-spacer (if indenter-style
+                             (tuition:render-styled indenter-style "    ")
+                             "    ")))
       (cond
         ;; Named nested tree
         ((typep child 'tui-tree)
@@ -102,8 +127,11 @@
            (dolist (line (rest child-lines))
              (push (format nil "~A~A~A"
                           prefix
-                          (if last-child-p "    " continuation)
-                          (serapeum:drop (+ (length prefix)
+                          (if last-child-p styled-spacer styled-cont)
+                          ;; Drop the child's own prefix (branch included) in
+                          ;; visible columns, which is correct even when the
+                          ;; accumulated prefix carries ANSI styling.
+                          (serapeum:drop (+ (tuition:visible-length prefix)
                                             (tuition:visible-length styled-branch))
                                          line))
                    result))))
@@ -125,10 +153,11 @@
            (push (format nil "~A~A~A" prefix styled-branch (first padded-lines)) result)
            ;; Continuation lines with continuation prefix
            (dolist (line (rest padded-lines))
-             (push (format nil "~A~A~A" prefix continuation line) result)))))))
+             (push (format nil "~A~A~A" prefix styled-cont line) result)))))))
   result)
 
-(defun render-children (children depth prefix enum-func enum-style item-style result)
+(defun render-children (children depth prefix enum-func enum-style indenter-style
+                        item-style result)
   "Render a list of tree children, handling nameless subtrees by inlining them."
   (let ((i 0)
         (n (length children)))
@@ -153,22 +182,25 @@
                       (multiple-value-bind (branch continuation)
                           (funcall enum-func depth (not more-after))
                         (declare (ignore branch))
-                        (let ((inline-prefix (concatenate 'string prefix continuation))
-                              (inline-n (length inline-children)))
+                        (let* ((styled-cont (if indenter-style
+                                                (tuition:render-styled indenter-style continuation)
+                                                continuation))
+                               (inline-prefix (concatenate 'string prefix styled-cont))
+                               (inline-n (length inline-children)))
                           ;; Render each inline child
                           (loop for ic in inline-children
                                 for ic-idx from 0
                                 for ic-last-p = (= ic-idx (1- inline-n))
                                 do (setf result
                                          (render-child-item ic (1+ depth) inline-prefix
-                                                            enum-func enum-style item-style
+                                                            enum-func enum-style indenter-style item-style
                                                             ic-last-p result))))))))
                  ;; Normal child (string or named tree)
                  (t
                   (let ((last-child-p (= i (1- n))))
                     (setf result
                           (render-child-item child depth prefix
-                                            enum-func enum-style item-style
+                                            enum-func enum-style indenter-style item-style
                                             last-child-p result)))
                   (incf i))))))
   result)
@@ -179,6 +211,7 @@
         (children (tree-children tree))
         (enum-func (or parent-enum-func (tree-enumerator tree)))
         (enum-style (tree-enumerator-style tree))
+        (indenter-style (tree-indenter-style tree))
         (root-style (tree-root-style tree))
         (item-style (tree-item-style tree))
         (result nil))
@@ -192,6 +225,14 @@
 
     ;; Render children
     (when children
-      (setf result (render-children children depth prefix enum-func enum-style item-style result)))
+      (setf result (render-children children depth prefix enum-func enum-style
+                                    indenter-style item-style result)))
 
-    (format nil "~{~A~^~%~}" (nreverse result))))
+    (let ((lines (nreverse result)))
+      ;; Apply a left margin (INDENT) at the top level only.
+      (if (and (null parent-enum-func)
+               (plusp (tree-indent tree)))
+          (let ((pad (make-string (tree-indent tree) :initial-element #\Space)))
+            (format nil "~{~A~^~%~}"
+                    (mapcar (lambda (l) (concatenate 'string pad l)) lines)))
+          (format nil "~{~A~^~%~}" lines)))))

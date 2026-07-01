@@ -60,8 +60,9 @@
                  :documentation "Style object for border rendering")
    (style-func :initform nil :accessor table-style-func
                :documentation "Function (row col) -> style for cell styling")
-   (widths :initform nil :accessor table-widths
-           :documentation "Column widths (nil means auto-calculate)")
+   (widths :initarg :widths :initform nil :accessor table-widths
+           :documentation "Column widths (nil means auto-calculate). When set
+narrower than a cell's content, the cell soft-wraps onto multiple lines")
    (width :initform nil :accessor table-width
           :documentation "Total table width")
    (height :initform nil :accessor table-height
@@ -77,6 +78,7 @@
   (:documentation "A table for rendering tabular data."))
 
 (defun make-table (&key headers rows border border-style style-func border-row
+                        widths
                         (border-top t border-top-p) (border-bottom t border-bottom-p)
                         (border-left t border-left-p) (border-right t border-right-p))
   "Create a new table."
@@ -87,6 +89,7 @@
     (when border-style (setf (table-border-style tbl) border-style))
     (when style-func (setf (table-style-func tbl) style-func))
     (when border-row (setf (table-border-row tbl) border-row))
+    (when widths (setf (table-widths tbl) widths))
     (when border-top-p (setf (table-border-top tbl) border-top))
     (when border-bottom-p (setf (table-border-bottom tbl) border-bottom))
     (when border-left-p (setf (table-border-left tbl) border-left))
@@ -145,21 +148,30 @@
     widths))
 
 ;;; Cell rendering
-(defun render-cell (table text width row col)
-  "Render a cell with the given text, applying style if available.
-   WIDTH is the target styled width for this column. The style's width is
-   set to WIDTH so that alignment (e.g. :center) works correctly."
+(defun render-cell-lines (table text width row col)
+  "Return a list of cell lines (each padded to WIDTH), soft-wrapping when the
+styled content is wider than WIDTH.  Ports the wrapping behaviour of lipgloss
+table (#620): a row's height grows to the tallest wrapped cell."
   (let* ((style-func (table-style-func table))
-         (styled-text (if style-func
-                          (alexandria:if-let (style (funcall style-func row col))
-                            (let ((cell-style (tuition:copy-style style)))
-                              (setf (tuition:style-width cell-style) width)
-                              (tuition:render-styled cell-style text))
-                            text)
-                          text))
-         (visible-len (tuition:visible-length styled-text))
-         (padding (max 0 (- width visible-len))))
-    (format nil "~A~A" styled-text (make-string padding :initial-element #\Space))))
+         (styled (if style-func
+                     (alexandria:if-let (style (funcall style-func row col))
+                       (let ((cell-style (tuition:copy-style style)))
+                         ;; Apply WIDTH so alignment (e.g. :center) is honored.
+                         (setf (tuition:style-width cell-style) width)
+                         (tuition:render-styled cell-style text))
+                       text)
+                     text))
+         (lines (if (<= (tuition:visible-length styled) width)
+                    (list styled)
+                    (tuition:split-string-by-newline
+                     (tuition:wrap-text styled width :break-words t
+                                        :normalize-spaces nil)))))
+    (mapcar (lambda (line)
+              (let ((pad (max 0 (- width (tuition:visible-length line)))))
+                (if (plusp pad)
+                    (concatenate 'string line (make-string pad :initial-element #\Space))
+                    line)))
+            lines)))
 
 ;;; Table rendering
 (defun table-render (table)
@@ -187,17 +199,30 @@
                    (write-string right s))))
 
              (render-row (cells row-idx)
-               (with-output-to-string (s)
-                 (when (table-border-left table)
-                   (write-string (slot-value border 'tuition::left) s))
-                 (loop for cell in cells
-                       for col-idx from 0
-                       for w in widths
-                       do (write-string (render-cell table (or cell "") w row-idx col-idx) s)
-                          (when (< col-idx (1- num-cols))
-                            (write-string (slot-value border 'tuition::left) s)))
-                 (when (table-border-right table)
-                   (write-string (slot-value border 'tuition::right) s)))))
+               (let* ((cell-line-list
+                        (loop for cell in cells
+                              for col-idx from 0
+                              for w in widths
+                              collect (render-cell-lines table (or cell "") w row-idx col-idx)))
+                      ;; Row height grows to the tallest wrapped cell (>= 1).
+                      (row-height (reduce #'max cell-line-list
+                                          :key #'length :initial-value 1)))
+                 (with-output-to-string (s)
+                   (dotimes (h row-height)
+                     (when (table-border-left table)
+                       (write-string (slot-value border 'tuition::left) s))
+                     (loop for col-idx below num-cols
+                           for w in widths
+                           for lines in cell-line-list
+                           for line = (or (nth h lines)
+                                          (make-string w :initial-element #\Space))
+                           do (write-string line s)
+                              (when (< col-idx (1- num-cols))
+                                (write-string (slot-value border 'tuition::left) s)))
+                     (when (table-border-right table)
+                       (write-string (slot-value border 'tuition::right) s))
+                     (when (< h (1- row-height))
+                       (write-char #\Newline s)))))))
 
       ;; Top border
       (when (table-border-top table)

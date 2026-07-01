@@ -96,3 +96,40 @@
     (tuition.render.tree:tree-child tree "Bar" "Foo" sub1 sub2 "Baz")
     (is (golden-equal "tree" "TestTreeAddTwoSubTreesWithoutName"
                       (tuition.render.tree:tree-render tree)))))
+
+;;; --- indenter styling + indent margin (#446) ---
+
+(test tree-indenter-style-colors-guides
+  "INDENTER-STYLE colors the continuation guides (the │ characters)."
+  (let ((tree (tuition.render.tree:make-tree
+               :root "root"
+               :indenter-style (make-style :foreground (parse-hex-color "#FF0000")))))
+    ;; First child is multiline and not last, so its continuation line draws a
+    ;; styled "│" guide.
+    (tuition.render.tree:tree-child tree (format nil "a~%b") "c")
+    (let ((view (tuition.render.tree:tree-render tree)))
+      (is (search (format nil "~C[38;2;255;0;0m" #\Escape) view))
+      (is (search "│" view)))))
+
+(test tree-no-indenter-style-is-plain
+  "Without INDENTER-STYLE the guides are plain (no escape sequences)."
+  (let ((tree (tuition.render.tree:make-tree :root "root")))
+    (tuition.render.tree:tree-child tree (format nil "a~%b") "c")
+    (is (not (find #\Escape (tuition.render.tree:tree-render tree))))))
+
+(test tree-indent-applies-left-margin
+  "INDENT adds a left margin to every rendered line."
+  (let ((tree (tuition.render.tree:make-tree :root "root" :indent 2)))
+    (tuition.render.tree:tree-child tree "a")
+    (let ((view (tuition.render.tree:tree-render tree)))
+      ;; Every line begins with two spaces.
+      (is (search "  root" view))
+      (is (search "  └── a" view)))))
+
+(test tree-indent-zero-is-unchanged
+  "INDENT 0 produces no left margin."
+  (let ((tree (tuition.render.tree:make-tree :root "root")))
+    (tuition.render.tree:tree-child tree "a")
+    (let ((view (tuition.render.tree:tree-render tree)))
+      (is (search "root" view))
+      (is (not (search "  root" view))))))

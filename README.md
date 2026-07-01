@@ -400,9 +400,10 @@ Use components when you want common interactions without re‑implementing state
   (declare (ignore cmd))
   (tuition.components.spinner:spinner-view sp))
 
-;; Progress
+;; Progress (the :colors list gives a gradient fill)
 (tuition.components.progress:progress-view
-  (tuition.components.progress:make-progress :percent 0.42))
+  (tuition.components.progress:make-progress
+    :percent 0.42 :colors (list "#5A56E0" "#EE6FF8")))
 
 ;; List
 (let ((lst (tuition.components.list:make-list-view :items '("A" "B" "C"))))
@@ -413,6 +414,13 @@ Use components when you want common interactions without re‑implementing state
   (tuition.components.table:make-table
     :headers '("ID" "Name")
     :rows '((1 "Alice") (2 "Bob"))))
+
+;; Table with soft-wrapping (tuition.render.table wraps cells to :widths)
+(tuition.render.table:table-render
+  (tuition.render.table:make-table
+    :headers '("ID" "Name")
+    :rows '((1 "Alice in Wonderland") (2 "Bob"))
+    :widths '(3 8)))
 
 ;; Text input
 (tuition.components.textinput:textinput-view

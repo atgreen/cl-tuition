@@ -4,7 +4,7 @@
   :description "A Common Lisp library for building TUIs"
   :author "Anthony Green <green@moxielogic.com>"
   :license "MIT"
-  :version "2.1.0"
+  :version "2.2.0"
   :depends-on ("bordeaux-threads"
                "trivial-channels"
                "version-string"
@@ -68,6 +68,7 @@
                              (:file "test-tree")
                              (:file "test-input")
                              (:file "test-text")
+                             (:file "test-progress")
                              (:file "test-textarea"))))
   :perform (test-op (o c)
                     (symbol-call :tuition-tests :run-tests)))

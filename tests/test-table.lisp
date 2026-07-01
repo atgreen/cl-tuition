@@ -168,3 +168,39 @@
               :style-func #'table-style-func)))
     (is (golden-equal "table/TestBorderStyles" "HiddenBorder"
                       (tuition.render.table:table-render tbl)))))
+
+;;; --- cell wrapping / multi-line rows (#620 adaptation) ---
+
+(test table-wraps-wide-cells
+  "A column narrower than its content soft-wraps onto multiple lines."
+  (let ((tbl (tuition.render.table:make-table :headers '("H")
+                                              :rows '(("abcdefghij"))
+                                              :widths '(5))))
+    (let ((view (tuition.render.table:table-render tbl)))
+      (is (search "abcde" view))
+      (is (search "fghij" view))
+      ;; The wrapped row added extra body lines.
+      (is (< 1 (count #\Newline view))))))
+
+(test table-row-height-grows-to-wrapped-cell
+  "A row grows to its tallest wrapped cell; shorter cells are padded with blanks."
+  (let ((tbl (tuition.render.table:make-table
+              :headers '("A" "B")
+              :rows '(("abcdefghij" "x"))
+              :widths '(5 3))))
+    (let ((view (tuition.render.table:table-render tbl)))
+      (is (search "abcde" view))
+      (is (search "fghij" view))
+      ;; The short cell appears on the first body line, the wrapped tail on the next.
+      (is (search "x" view))
+      (let ((lines (tuition:split-string-by-newline view)))
+        (is (some (lambda (l) (search "abcde" l)) lines))
+        (is (some (lambda (l) (search "fghij" l)) lines))))))
+
+(test table-no-widths-never-wraps
+  "Without explicit widths, content is never wrapped."
+  (let ((tbl (tuition.render.table:make-table :headers '("H")
+                                              :rows '(("abcdefghij")))))
+    (let ((view (tuition.render.table:table-render tbl)))
+      ;; The full content survives intact on a single line.
+      (is (search "abcdefghij" view)))))
