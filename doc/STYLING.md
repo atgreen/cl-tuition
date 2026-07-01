@@ -55,6 +55,28 @@ Terminal styling and layout utilities for Tuition.
 (colored "Warning" :fg *fg-bright-yellow* :bg *bg-black*)
 ```
 
+### Hex and truecolor colors
+
+Beyond the predefined `*fg-*` / `*bg-*` constants, hex color strings are accepted
+anywhere a color is expected (`make-style`, `colored`, component options such as
+progress `:colors`, etc.). Hex is resolved to the terminal's best supported mode
+— truecolor, then 256, then 16:
+
+```lisp
+(make-style :foreground "#FF0000")                       ; red
+(make-style :foreground "#5A56E0" :background "#0F0F12")
+(colored "Pink" :fg "#EE6FF8")
+```
+
+For explicit control, `parse-hex-color` returns the truecolor SGR parameters
+(`"38;2;R;G;B"`), and `make-complete-color` bundles truecolor/256/16 fallbacks
+so a single color definition renders well on any terminal:
+
+```lisp
+(make-style :foreground (make-complete-color :truecolor "#FF8800"))
+(parse-hex-color "#00FF00")   ; => "38;2;0;255;0"
+```
+
 ## Text Formatting
 
 ### Simple Formatting Functions

@@ -123,6 +123,23 @@ Visual progress indicator with customizable appearance.
 [████████████████████████████████░░░░░░░░]  75%
 ```
 
+**Colors and gradient fill**
+
+`make-progress` accepts `:colors` (a list of hex color stops) and `:empty-color`:
+
+- omitted / `nil` — plain fill (the default, as above)
+- a single hex string — solid fill
+- two or more hex strings — a gradient blend across the filled portion
+
+```lisp
+(make-progress :percent 0.75 :width 40
+               :colors (list "#5A56E0" "#EE6FF8")  ; purple → pink gradient
+               :empty-color "#606060")             ; dim the empty portion
+```
+
+Colors are interpolated evenly between stops (ported from bubbles progress #838).
+Hex strings are resolved to the terminal's best mode (truecolor, 256, or 16).
+
 ### List
 
 Scrollable list with selection and keyboard navigation.
