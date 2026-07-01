@@ -91,6 +91,64 @@ Single-line text input field with cursor support.
 - `Backspace/Delete` - Delete characters
 - Any printable character - Insert
 
+### Textarea
+
+Multi-line text editor with cursor navigation, word editing, optional
+soft-wrapping, and an optional dynamic height.
+
+```lisp
+(use-package :tui.textarea)
+
+;; Create a textarea
+(defparameter *ta* (make-textarea
+                     :width 60 :height 10
+                     :placeholder "Type here..."
+                     :char-limit 280 :max-lines 1000
+                     :soft-wrap t :dynamic-height t))
+
+;; In your update - delegate key messages (only handled when focused)
+(defmethod tui:update ((model my-model) msg)
+  (multiple-value-bind (new-ta cmd)
+      (textarea-update (model-textarea model) msg)
+    (setf (model-textarea model) new-ta)
+    (values model cmd)))
+
+;; In your view
+(defmethod tui:view ((model my-model))
+  (textarea-view (model-textarea model)))
+
+;; Programmatic access
+(textarea-focus *ta*)                        ; focus (required to receive keys)
+(textarea-blur *ta*)
+(textarea-value *ta*)                        ; full contents
+(textarea-set-value *ta* "line 1
+line 2")
+(textarea-insert-string *ta* "more text")
+(textarea-cursor-position *ta*)              ; => (values row col)
+(textarea-line-count *ta*)
+```
+
+**Options:**
+- `:char-limit` / `:max-lines` — caps enforced on insert (0 / nil = unlimited)
+- `:soft-wrap t` — long lines wrap to `width` display columns; cursor and
+  scroll tracking move to visual lines
+- `:dynamic-height t` — viewport grows/shrinks to fit content, clamped to
+  `:min-height` / `:max-height`
+- `:show-line-numbers`, `:prompt`, `:placeholder`, `:width`, `:height`
+
+Soft-wrap and dynamic-height default off, so a plain textarea behaves exactly
+as before.
+
+**Keybindings:**
+- `←/→/↑/↓` - Move cursor
+- `Home`/`End` (or `Ctrl-a`/`Ctrl-e`) - Line start/end; `Ctrl-Home`/`Ctrl-End` - Document start/end
+- `Alt-b`/`Alt-f` - Move by word; `Alt-Backspace`/`Ctrl-w` and `Alt-d` - Delete by word
+- `Ctrl-t` - Transpose characters; `Alt-c`/`Alt-l`/`Alt-u` - Capitalize/lowercase/uppercase word
+- `Ctrl-k`/`Ctrl-u` - Delete to end/start of line
+- `PageUp`/`PageDown` - Page the viewport
+- `Backspace`/`Delete`/`Enter` - Delete and newline
+- `Ctrl-v` (or a bracketed paste) - Paste
+
 ### Progress Bar
 
 Visual progress indicator with customizable appearance.
