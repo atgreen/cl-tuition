@@ -1,0 +1,6 @@
+# Normalize all text files to LF on checkout regardless of platform.
+# Without this, GitHub Actions' default core.autocrlf on Windows converts
+# sources and golden fixtures to CRLF, which (a) breaks FORMAT directives
+# that rely on ~<newline> continuation in tests/golden.lisp and (b) makes
+# golden fixtures mismatch LF-rendered output.
+* text=auto eol=lf

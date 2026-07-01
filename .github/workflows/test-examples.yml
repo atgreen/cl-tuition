@@ -81,15 +81,15 @@ jobs:
 
       - name: Install deps (Linux)
         if: runner.os == 'Linux'
-        env:
-          INSTALL_CMD: ${{ matrix.deps }}
-        run: $INSTALL_CMD
+        # Use ${{ matrix.deps }} directly (not via an env var) so the shell
+        # re-parses operators like &&; `run: $INSTALL_CMD` would pass them as
+        # literal arguments (e.g. "apt-get update && ..." -> "update" gets
+        # "&&" as an arg -> "The update command takes no arguments").
+        run: ${{ matrix.deps }}
 
       - name: Install deps (macOS)
         if: runner.os == 'macOS'
-        env:
-          INSTALL_CMD: ${{ matrix.deps }}
-        run: $INSTALL_CMD
+        run: ${{ matrix.deps }}
 
       - name: Install deps (Windows)
         if: runner.os == 'Windows'
