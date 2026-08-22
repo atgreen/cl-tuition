@@ -167,11 +167,11 @@
       (error (make-condition 'terminal-operation-error :operation :enter-raw-mode :reason c))))
   #+(and unix (not (and sbcl unix)))
   (handler-case
-      (let ((stty-dev (format nil "~a /dev/tty" #+darwin "-f" #-darwin "-F")))
+      (progn
         (unless *original-stty-settings*
           (setf *original-stty-settings*
-                (run-stty-shell (format nil "stty ~a -g" stty-dev) :capture t)))
-        (run-stty-shell (format nil "stty ~a raw -echo" stty-dev)))
+                (run-stty-shell "stty -g < /dev/tty" :capture t)))
+        (run-stty-shell "stty raw -echo < /dev/tty"))
     (error (c)
       (error (make-condition 'terminal-operation-error :operation :enter-raw-mode :reason c))))
   #-(or win32 unix)
@@ -198,9 +198,7 @@
   #+(and unix (not (and sbcl unix)))
   (handler-case
       (when *original-stty-settings*
-        (run-stty-shell (format nil "stty ~a ~a"
-                                (format nil "~a /dev/tty" #+darwin "-f" #-darwin "-F")
-                                *original-stty-settings*))
+        (run-stty-shell (format nil "stty ~a < /dev/tty" *original-stty-settings*))
         (setf *original-stty-settings* nil))
     (error (c)
       (error (make-condition 'terminal-operation-error :operation :exit-raw-mode :reason c))))

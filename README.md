@@ -545,7 +545,7 @@ target.
 - `bordeaux-threads` — cross‑platform threading (omitted when
   `:tuition-single-threaded` is on `*features*` before load)
 - `trivial-channels` — thread‑safe message passing (replaced by an internal
-  stub in single-threaded mode)
+  queue in single-threaded mode)
 
 ## License
 

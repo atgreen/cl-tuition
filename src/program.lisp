@@ -14,10 +14,30 @@
 (defvar *exec-suspended* nil
   "When T, signal handlers should not send messages (TUI is suspended for exec).")
 
+#-tuition-single-threaded
+(progn
+  (declaim (inline %make-channel %channel-send %channel-get))
+  (defun %make-channel ()
+    (trivial-channels:make-channel))
+  (defun %channel-send (channel msg)
+    (trivial-channels:sendmsg channel msg))
+  (defun %channel-get (channel)
+    (trivial-channels:getmsg channel)))
+
+#+tuition-single-threaded
+(progn
+  (declaim (inline %make-channel %channel-send %channel-get))
+  (defun %make-channel ()
+    (make-st-queue))
+  (defun %channel-send (channel msg)
+    (st-queue-push channel msg))
+  (defun %channel-get (channel)
+    (st-queue-pop channel)))
+
 (defclass program ()
   ((model :initarg :model :accessor program-model)
    (renderer :initform (make-instance 'renderer) :accessor program-renderer)
-   (msg-channel :initform (trivial-channels:make-channel) :accessor msg-channel)
+   (msg-channel :initform (%make-channel) :accessor msg-channel)
    (running :initform nil :accessor program-running)
    (input-paused :initform nil :accessor program-input-paused
                  :documentation "When T, the input loop will not read from stdin.")
@@ -33,7 +53,8 @@
                           :accessor program-pending-signal-thunks))
   (:documentation "A Bubble Tea program instance."))
 
-(defun make-program (model &key (pool-size *default-pool-size*))
+(defun make-program (model &key (pool-size #-tuition-single-threaded *default-pool-size*
+                                         #+tuition-single-threaded nil))
   "Create a new program with the given initial model.
 
 In v2, terminal modes (alt-screen, mouse, focus events) are controlled
@@ -46,6 +67,7 @@ Options (keyword args only):
   (declare (ignore pool-size))
   (let ((resolved-pool-size #-tuition-single-threaded pool-size
                             #+tuition-single-threaded nil))
+    #-tuition-single-threaded
     (when (and resolved-pool-size
                (not (and (integerp resolved-pool-size) (> resolved-pool-size 0))))
       (error "Invalid :pool-size ~S; expected positive integer or NIL" resolved-pool-size))
@@ -55,7 +77,7 @@ Options (keyword args only):
 (defun send (program msg)
   "Send a message to the program's update loop."
   (when (program-running program)
-    (trivial-channels:sendmsg (msg-channel program) msg)))
+    (%channel-send (msg-channel program) msg)))
 
 (defun quit (program)
   "Quit the program gracefully."
@@ -79,8 +101,7 @@ Options (keyword args only):
   "Run one async command thunk and send its message, if any."
   (handler-case
       (alexandria:when-let ((msg (funcall cmd)))
-        (when msg
-          (send program msg)))
+        (send program msg))
     (error (e)
       (handle-error :command e))))
 
@@ -94,13 +115,21 @@ Options (keyword args only):
 #+tuition-single-threaded
 (defun enqueue-deferred-signal-thunk (program thunk)
   "Queue THUNK for execution on the main loop (safe from signal handlers)."
+  #+sbcl
+  (sb-sys:without-interrupts
+    (st-queue-push (program-pending-signal-thunks program) thunk))
+  #-sbcl
   (st-queue-push (program-pending-signal-thunks program) thunk))
 
 #+tuition-single-threaded
 (defun process-pending-signal-thunks (program)
-  "Run at most one signal-deferred thunk on the main loop."
-  (let ((thunk (st-queue-pop (program-pending-signal-thunks program))))
-    (when thunk
+  "Drain and execute all signal-deferred thunks on the main loop."
+  (loop
+    (let ((thunk
+            #+sbcl (sb-sys:without-interrupts
+                     (st-queue-pop (program-pending-signal-thunks program)))
+            #-sbcl (st-queue-pop (program-pending-signal-thunks program))))
+      (unless thunk (return))
       (handler-case (funcall thunk)
         (error (e)
           (handle-error :signal-defer e))))))
@@ -123,21 +152,17 @@ Options (keyword args only):
     (setf (program-cmd-pool program) nil))
   (cleanup-program-terminal program))
 
-(defun prepare-program-run (program pool-size)
-  "Common startup: bind globals, open tty, init thread pool, set dimensions."
+(defun prepare-program-run (program pool-size tty-stream)
+  "Common startup: init running flag, thread pool, and renderer stream."
   #+tuition-single-threaded
   (declare (ignore pool-size))
-  (let* ((*current-program* program)
-         (tty-stream (get-tty-stream))
-         (*standard-output* (or tty-stream *standard-output*)))
-    (setf (program-running program) t)
-    #-tuition-single-threaded
-    (when (and *use-thread-pool* pool-size)
-      (setf (program-cmd-pool program) (make-pool pool-size program)))
-    (setf (program-tty-stream program) (or tty-stream *terminal-io*))
-    (when tty-stream
-      (setf (output-stream (program-renderer program)) tty-stream))
-    (values tty-stream)))
+  (setf (program-running program) t)
+  #-tuition-single-threaded
+  (when (and *use-thread-pool* pool-size)
+    (setf (program-cmd-pool program) (make-pool pool-size program)))
+  (setf (program-tty-stream program) (or tty-stream *terminal-io*))
+  (when tty-stream
+    (setf (output-stream (program-renderer program)) tty-stream)))
 
 (defun run-initial-model (program)
   "Run init command, send window size, and render the first frame."
@@ -181,86 +206,92 @@ Options (keyword args only):
 In v2, starts with minimal terminal setup (raw mode only).
 Terminal modes are applied declaratively from the first view-state render."
   (let* ((opts (program-options program))
-         (pool-size (getf opts :pool-size)))
-    (with-raw-terminal ()
-      (prepare-program-run program pool-size)
-      (flet ((run-main-loop ()
-               #-tuition-single-threaded
-               (let ((input-thread (bt:make-thread
-                                    (lambda () (input-loop program))
-                                    :name "tuition-input")))
-                 (run-initial-model program)
-                 (event-loop program)
-                 (shutdown-program program)
-                 (bt:join-thread input-thread))
-               #+tuition-single-threaded
-               (progn
-                 (run-initial-model program)
-                 (unified-event-loop program)
-                 (shutdown-program program))))
-        #+(and sbcl (not windows))
-        (let ((old-sigwinch-handler nil)
-              (old-sigtstp-handler nil)
-              (old-sigcont-handler nil))
-          (setf old-sigwinch-handler
-                (sb-sys:enable-interrupt
-                 sb-posix:sigwinch
-                 (lambda (signal code scp)
-                   (declare (ignore signal code scp))
-                   (unless *exec-suspended*
-                     (let* ((size (get-terminal-size))
-                            (width (car size))
-                            (height (cdr size)))
-                       (setf (renderer-width (program-renderer program)) width
-                             (renderer-height (program-renderer program)) height)
-                       (defer-from-signal
-                        program
-                        (lambda ()
-                          (send program (make-window-size-msg :width width :height height)))
-                        "tuition-sigwinch"))))))
-          (setf old-sigtstp-handler
-                (sb-sys:enable-interrupt
-                 sb-posix:sigtstp
-                 (lambda (signal code scp)
-                   (declare (ignore signal code scp))
-                   (let* ((renderer (program-renderer program))
-                          (vs (last-view-state renderer)))
-                     (setf (program-restore-fn program)
-                           (suspend-terminal
-                            :alt-screen (and vs (view-state-alt-screen vs))
-                            :mouse (and vs (view-state-mouse-mode vs))
-                            :focus-events (and vs (view-state-report-focus vs)))))
-                   (sb-posix:kill (sb-posix:getpid) sb-posix:sigstop))))
-          (setf old-sigcont-handler
-                (sb-sys:enable-interrupt
-                 sb-posix:sigcont
-                 (lambda (signal code scp)
-                   (declare (ignore signal code scp))
-                   (when (program-restore-fn program)
-                     (resume-terminal (program-restore-fn program))
-                     (setf (program-restore-fn program) nil))
-                   (defer-from-signal
-                    program
-                    (lambda () (send program (make-resume-msg)))
-                    "tuition-sigcont"))))
-          (run-main-loop)
-          (when old-sigwinch-handler
-            (sb-sys:enable-interrupt sb-posix:sigwinch old-sigwinch-handler))
-          (when old-sigtstp-handler
-            (sb-sys:enable-interrupt sb-posix:sigtstp old-sigtstp-handler))
-          (when old-sigcont-handler
-            (sb-sys:enable-interrupt sb-posix:sigcont old-sigcont-handler)))
-        #-(and sbcl (not windows))
-        (run-main-loop))
+         (pool-size (getf opts :pool-size))
+         (tty-stream (get-tty-stream)))
+    (unwind-protect
+        (let ((*current-program* program)
+              (*standard-output* (or tty-stream *standard-output*)))
+          (with-raw-terminal ()
+            (prepare-program-run program pool-size tty-stream)
+            (flet ((run-main-loop ()
+                     #-tuition-single-threaded
+                     (let ((input-thread (bt:make-thread
+                                          (lambda () (input-loop program))
+                                          :name "tuition-input")))
+                       (run-initial-model program)
+                       (event-loop program)
+                       (shutdown-program program)
+                       (bt:join-thread input-thread))
+                     #+tuition-single-threaded
+                     (progn
+                       (run-initial-model program)
+                       (unified-event-loop program)
+                       (shutdown-program program))))
+              #+(and sbcl (not windows))
+              (let ((old-sigwinch-handler nil)
+                    (old-sigtstp-handler nil)
+                    (old-sigcont-handler nil))
+                (unwind-protect
+                    (progn
+                      (setf old-sigwinch-handler
+                            (sb-sys:enable-interrupt
+                             sb-posix:sigwinch
+                             (lambda (signal code scp)
+                               (declare (ignore signal code scp))
+                               (unless *exec-suspended*
+                                 (let* ((size (get-terminal-size))
+                                        (width (car size))
+                                        (height (cdr size)))
+                                   (setf (renderer-width (program-renderer program)) width
+                                         (renderer-height (program-renderer program)) height)
+                                   (defer-from-signal
+                                    program
+                                    (lambda ()
+                                      (send program (make-window-size-msg :width width :height height)))
+                                    "tuition-sigwinch"))))))
+                      (setf old-sigtstp-handler
+                            (sb-sys:enable-interrupt
+                             sb-posix:sigtstp
+                             (lambda (signal code scp)
+                               (declare (ignore signal code scp))
+                               (let* ((renderer (program-renderer program))
+                                      (vs (last-view-state renderer)))
+                                 (setf (program-restore-fn program)
+                                       (suspend-terminal
+                                        :alt-screen (and vs (view-state-alt-screen vs))
+                                        :mouse (and vs (view-state-mouse-mode vs))
+                                        :focus-events (and vs (view-state-report-focus vs)))))
+                               (sb-posix:kill (sb-posix:getpid) sb-posix:sigstop))))
+                      (setf old-sigcont-handler
+                            (sb-sys:enable-interrupt
+                             sb-posix:sigcont
+                             (lambda (signal code scp)
+                               (declare (ignore signal code scp))
+                               (when (program-restore-fn program)
+                                 (resume-terminal (program-restore-fn program))
+                                 (setf (program-restore-fn program) nil))
+                               (defer-from-signal
+                                program
+                                (lambda () (send program (make-resume-msg)))
+                                "tuition-sigcont"))))
+                      (run-main-loop))
+                  (when old-sigwinch-handler
+                    (sb-sys:enable-interrupt sb-posix:sigwinch old-sigwinch-handler))
+                  (when old-sigtstp-handler
+                    (sb-sys:enable-interrupt sb-posix:sigtstp old-sigtstp-handler))
+                  (when old-sigcont-handler
+                    (sb-sys:enable-interrupt sb-posix:sigcont old-sigcont-handler))))
+              #-(and sbcl (not windows))
+              (run-main-loop))))
       (close-tty-stream))))
 
 (defun process-channel-messages (program)
   "Drain and handle all pending messages on PROGRAM's channel.
 Returns T when any messages were processed."
-  (let ((first-msg (trivial-channels:getmsg (msg-channel program))))
+  (let ((first-msg (%channel-get (msg-channel program))))
     (when first-msg
       (let ((messages (list first-msg)))
-        (loop for msg = (trivial-channels:getmsg (msg-channel program))
+        (loop for msg = (%channel-get (msg-channel program))
               while msg
               do (push msg messages))
         (handle-messages-batch program (nreverse messages))
@@ -473,11 +504,7 @@ sequence thread (mirrors bubbletea's nested-panic recovery)."
   #+tuition-single-threaded
   (dolist (cmd cmds)
     (when cmd
-      (enqueue-async-command
-       program
-       (lambda ()
-         (when (program-running program)
-           (%invoke-queued-command program cmd)))))))
+      (enqueue-async-command program cmd))))
 
 (defun read-all-available-events ()
   "Read all available input events and return them as a list."
@@ -492,7 +519,7 @@ sequence thread (mirrors bubbletea's nested-panic recovery)."
   (when (and (program-running program) msgs)
     (let ((channel (msg-channel program)))
       (dolist (msg msgs)
-        (trivial-channels:sendmsg channel msg)))))
+        (%channel-send channel msg)))))
 
 (defun input-loop (program)
   "Read input and send messages to the program."

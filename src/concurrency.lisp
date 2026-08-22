@@ -4,7 +4,7 @@
 ;;;
 ;;; Copyright (C) 2025  Anthony Green <green@moxielogic.com>
 ;;;
-;;;; Single-threaded support: FIFO queues and a trivial-channels stub.
+;;;; Single-threaded support: FIFO queues.
 ;;;;
 ;;;; Loaded only when :tuition-single-threaded is on *features* before load.
 ;;;; Opt in with:
@@ -33,21 +33,3 @@
         (setf (st-queue-head queue) (cdr head))
         (unless (st-queue-head queue)
           (setf (st-queue-tail queue) nil))))))
-
-(eval-when (:compile-toplevel :load-toplevel :execute)
-  (defpackage :trivial-channels
-    (:use :cl)
-    (:export #:make-channel #:sendmsg #:getmsg)))
-
-(in-package :trivial-channels)
-
-(defstruct channel
-  (queue (tuition::make-st-queue)))
-
-(defun sendmsg (channel msg)
-  (tuition::st-queue-push (channel-queue channel) msg))
-
-(defun getmsg (channel)
-  (tuition::st-queue-pop (channel-queue channel)))
-
-(in-package #:tuition)

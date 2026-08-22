@@ -12,6 +12,10 @@
 (deftype msg () t)
 (deftype cmd () '(or null function list))
 
+(defparameter *default-pool-size* 4
+  "Default number of worker threads in the command pool.
+Can be overridden via :pool-size option to make-program.")
+
 (defclass message () ()
   (:documentation "Root class of all messages."))
 

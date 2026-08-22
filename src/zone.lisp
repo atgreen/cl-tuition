@@ -13,7 +13,8 @@
   `(bordeaux-threads:with-lock-held (,lock) ,@body))
 
 #+tuition-single-threaded
-(defmacro %with-zone-lock ((_lock) &body body)
+(defmacro %with-zone-lock ((lock) &body body)
+  (declare (ignore lock))
   `(progn ,@body))
 
 ;;; Zone markers use ANSI escape sequences that are invisible and don't affect
