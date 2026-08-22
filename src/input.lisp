@@ -46,8 +46,12 @@
   "Read a single key from stdin and return a key-press-msg.
    Returns nil if no input is available."
   (let ((stream (or *input-stream* *standard-input*)))
+    (unless (listen stream)
+      (return-from read-key nil))
     (let ((char (read-char-no-hang stream nil nil)))
-      (when char
+      (when (and char
+                 #+clisp (not (eql char #\Nul))
+                 #-clisp t)
         (%ilog "read-key: char='~A' code=~D" char (char-code char))
         (cond
           ;; Escape sequences - read the rest of the sequence

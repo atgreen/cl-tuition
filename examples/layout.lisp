@@ -11,7 +11,6 @@
 
 (defpackage :tuition.examples.layout
   (:use :cl)
-  (:local-nicknames (#:tui #:tuition))
   (:documentation "Layout example demonstrating Tuition style and layout features."))
 
 (in-package :tuition.examples.layout)

@@ -48,16 +48,49 @@
                                     :auto-close t
                                     :name "/dev/tty")))))
 
-#-(and sbcl unix)
+#-(or win32 unix)
 (defun get-tty-stream ()
-  "Fallback: no /dev/tty on this platform."
+  "Fallback when /dev/tty is unavailable on this platform."
   nil)
+
+#+(and unix (not (and sbcl unix)))
+(defvar *tty-stream* nil
+  "Bidirectional stream for /dev/tty on non-SBCL Unix implementations.")
+
+#+(and unix (not (and sbcl unix)))
+(defvar *original-stty-settings* nil
+  "Saved stty(1) settings before entering raw mode.")
+
+#+(and unix (not (and sbcl unix)))
+(defun run-stty-shell (command &key capture)
+  "Run a shell COMMAND invoking stty(1). When CAPTURE is true, return stdout."
+  (if capture
+      (string-right-trim '(#\Space #\Tab #\Newline #\Return)
+                         (uiop:run-program `("sh" "-c" ,command)
+                                           :output :string
+                                           :error-output nil))
+      (progn
+        (uiop:run-program `("sh" "-c" ,command) :error-output nil)
+        nil)))
+
+#+(and unix (not (and sbcl unix)))
+(defun get-tty-stream ()
+  "Open /dev/tty for direct terminal I/O."
+  (or *tty-stream*
+      (handler-case
+          (setf *tty-stream* (open "/dev/tty"
+                                  :direction :io
+                                  :if-does-not-exist :error))
+        (error (e)
+          (declare (ignore e))
+          nil))))
 
 (defun close-tty-stream ()
   "Close the /dev/tty stream if open."
-  #+(and sbcl unix)
+  #+(and unix (not win32))
   (when *tty-stream*
-    (ignore-errors (close *tty-stream*))
+    (handler-case (close *tty-stream*)
+      (stream-error () nil))
     (setf *tty-stream* nil)))
 
 (defun enter-raw-mode ()
@@ -132,7 +165,16 @@
           (sb-posix:tcsetattr fd sb-posix:tcsanow new-termios)))
     (error (c)
       (error (make-condition 'terminal-operation-error :operation :enter-raw-mode :reason c))))
-  #-(or win32 (and sbcl unix))
+  #+(and unix (not (and sbcl unix)))
+  (handler-case
+      (let ((stty-dev (format nil "~a /dev/tty" #+darwin "-f" #-darwin "-F")))
+        (unless *original-stty-settings*
+          (setf *original-stty-settings*
+                (run-stty-shell (format nil "stty ~a -g" stty-dev) :capture t)))
+        (run-stty-shell (format nil "stty ~a raw -echo" stty-dev)))
+    (error (c)
+      (error (make-condition 'terminal-operation-error :operation :enter-raw-mode :reason c))))
+  #-(or win32 unix)
   (warn "Raw mode not yet implemented for this platform"))
 
 (defun exit-raw-mode ()
@@ -153,7 +195,16 @@
             (setf *tty-fd* nil))))
     (error (c)
       (error (make-condition 'terminal-operation-error :operation :exit-raw-mode :reason c))))
-  #-(or win32 (and sbcl unix))
+  #+(and unix (not (and sbcl unix)))
+  (handler-case
+      (when *original-stty-settings*
+        (run-stty-shell (format nil "stty ~a ~a"
+                                (format nil "~a /dev/tty" #+darwin "-f" #-darwin "-F")
+                                *original-stty-settings*))
+        (setf *original-stty-settings* nil))
+    (error (c)
+      (error (make-condition 'terminal-operation-error :operation :exit-raw-mode :reason c))))
+  #-(or win32 unix)
   (warn "Raw mode not yet implemented for this platform"))
 
 (defun get-terminal-size ()
