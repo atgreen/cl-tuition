@@ -7,6 +7,7 @@
 ;;;
 ;;; It shows how to composite a foreground dialog on top of a background UI.
 
+(asdf:initialize-source-registry `(:source-registry (:tree ,(uiop:pathname-parent-directory-pathname (uiop:getcwd))) :inherit-configuration))
 (asdf:load-system :tuition)
 
 (defpackage :tuition.examples.overlay

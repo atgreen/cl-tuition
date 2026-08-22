@@ -131,9 +131,8 @@ left margin (spaces) applied to every line."
                           ;; Drop the child's own prefix (branch included) in
                           ;; visible columns, which is correct even when the
                           ;; accumulated prefix carries ANSI styling.
-                          (serapeum:drop (+ (tuition:visible-length prefix)
-                                            (tuition:visible-length styled-branch))
-                                         line))
+                          (subseq line (+ (tuition:visible-length prefix)
+                                            (tuition:visible-length styled-branch))))
                    result))))
         ;; String child (possibly multiline)
         (t

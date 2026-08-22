@@ -9,7 +9,6 @@
                "trivial-channels"
                "version-string"
                "alexandria"
-               "serapeum"
                "cl-base64")
   :serial t
   :components ((:module "src"

@@ -5,6 +5,7 @@
 ;;; Animated blinking eyes demo. Port of the BubbleTea eyes example.
 ;;; Roughly converted from https://github.com/dmtrKovalenko/esp32-smooth-eye-blinking
 
+(asdf:initialize-source-registry `(:source-registry (:tree ,(uiop:pathname-parent-directory-pathname (uiop:getcwd))) :inherit-configuration))
 (asdf:load-system :tuition)
 
 (defpackage #:eyes-demo

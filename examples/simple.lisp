@@ -6,6 +6,7 @@
 ;;;
 ;;;; Simple countdown example - counts down from 5 and exits
 
+(asdf:initialize-source-registry `(:source-registry (:tree ,(uiop:pathname-parent-directory-pathname (uiop:getcwd))) :inherit-configuration))
 (asdf:load-system :tuition)
 
 (defpackage #:tuition-example-simple

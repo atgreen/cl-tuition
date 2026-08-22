@@ -6,6 +6,7 @@
 ;;;
 ;;;; Text input example - demonstrates simple text input
 
+(asdf:initialize-source-registry `(:source-registry (:tree ,(uiop:pathname-parent-directory-pathname (uiop:getcwd))) :inherit-configuration))
 (asdf:load-system :tuition)
 
 (defpackage #:tuition-example-textinput

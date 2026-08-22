@@ -139,7 +139,7 @@ Each group is a list of bindings that form a column."
           do (let* ((sep (if (and (> total-width 0) (< i (length groups)))
                             separator
                             ""))
-                    (enabled-bindings (serapeum:filter #'help-binding-enabled group))
+                    (enabled-bindings (remove-if-not #'help-binding-enabled group))
                     (keys (mapcar #'help-binding-key enabled-bindings))
                     (descs (mapcar #'help-binding-description enabled-bindings))
                     (key-column (format nil "~{~A~^~%~}" keys))

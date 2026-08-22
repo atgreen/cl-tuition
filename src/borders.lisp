@@ -147,9 +147,10 @@
                   ;; Build top border with title embedded
                   (let* ((title-vis-len (visible-length title))
                          (available (- max-width 2))
-                         (truncated-title (if (> title-vis-len available)
-                                              (serapeum:take (min (length title) available) title)
-                                              title))
+                         (truncated-title
+                          (if (> title-vis-len available)
+                              (subseq title 0 (min (length title) available))
+                              title))
                          (t-len (visible-length truncated-title))
                          (border-char (char (border-top border) 0))
                          (left-pad (case title-position
