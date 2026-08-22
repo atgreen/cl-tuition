@@ -107,10 +107,12 @@ Options (keyword args only):
 
 #+tuition-single-threaded
 (defun process-one-pending-command (program)
-  "Execute at most one queued command without blocking the event loop indefinitely."
+  "Execute at most one queued command without blocking the event loop indefinitely.
+Returns T when a command was run, NIL when the queue was empty."
   (let ((cmd (st-queue-pop (program-pending-commands program))))
     (when cmd
-      (%invoke-queued-command program cmd))))
+      (%invoke-queued-command program cmd)
+      t)))
 
 #+tuition-single-threaded
 (defun enqueue-deferred-signal-thunk (program thunk)
@@ -315,17 +317,21 @@ issues with timed recvmsg on SBCL."
   (setf *input-stream* (program-tty-stream program))
   (loop while (program-running program) do
     (handler-case
-        (progn
+        (let ((did-work nil))
           (process-pending-signal-thunks program)
-          (process-one-pending-command program)
+          (when (process-one-pending-command program)
+            (setf did-work t))
           (unless (program-input-paused program)
             (let ((events (read-all-available-events)))
               (when events
                 (%ilog "input-loop: batch of ~D events" (length events))
                 (send-batch program events))))
-          (if (process-channel-messages program)
-              nil
-              (sleep 0.001)))
+          (when (process-channel-messages program)
+            (setf did-work t))
+          ;; Only yield the CPU when the turn produced no work; otherwise keep
+          ;; draining so a batch of queued commands does not stall at ~1ms each.
+          (unless did-work
+            (sleep 0.001)))
       (error (e)
         (handle-error :event-loop e)))))
 

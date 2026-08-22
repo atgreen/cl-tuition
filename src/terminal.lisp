@@ -48,9 +48,9 @@
                                     :auto-close t
                                     :name "/dev/tty")))))
 
-#-(or win32 unix)
+#-unix
 (defun get-tty-stream ()
-  "Fallback when /dev/tty is unavailable on this platform."
+  "Fallback when /dev/tty is unavailable on this platform (e.g. Windows)."
   nil)
 
 #+(and unix (not (and sbcl unix)))
