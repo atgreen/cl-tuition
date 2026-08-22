@@ -8,6 +8,15 @@
 
 (in-package #:tuition)
 
+#-tuition-single-threaded
+(defmacro %with-zone-lock ((lock) &body body)
+  `(bordeaux-threads:with-lock-held (,lock) ,@body))
+
+#+tuition-single-threaded
+(defmacro %with-zone-lock ((lock) &body body)
+  (declare (ignore lock))
+  `(progn ,@body))
+
 ;;; Zone markers use ANSI escape sequences that are invisible and don't affect
 ;;; lipgloss width calculations. Format: ESC[<number>z
 
@@ -28,7 +37,8 @@
    (rids :initform (make-hash-table :test 'equal)
          :accessor zone-manager-rids
          :documentation "Map of generated marker ID -> user ID")
-   (lock :initform (bordeaux-threads:make-lock "zone-manager-lock")
+   (lock :initform #-tuition-single-threaded (bordeaux-threads:make-lock "zone-manager-lock")
+                  #+tuition-single-threaded nil
          :accessor zone-manager-lock))
   (:documentation "Manager for tracking mouse zones in TUI applications."))
 
@@ -64,7 +74,7 @@
     (setf (zone-manager-enabled manager) enabled)
     (unless enabled
       ;; Clear all zones when disabling
-      (bordeaux-threads:with-lock-held ((zone-manager-lock manager))
+      (%with-zone-lock ((zone-manager-lock manager))
         (clrhash (zone-manager-zones manager))))))
 
 (defun zone-new-prefix (&optional (manager *zone-manager*))
@@ -82,7 +92,7 @@
       text
       (let ((gid nil))
         ;; Get or create marker ID
-        (bordeaux-threads:with-lock-held ((zone-manager-lock manager))
+        (%with-zone-lock ((zone-manager-lock manager))
           (setf gid (gethash id (zone-manager-ids manager)))
           (unless gid
             ;; Generate new marker: ESC[<number>z
@@ -95,13 +105,13 @@
 (defun zone-clear (id &optional (manager *zone-manager*))
   "Remove stored zone information for the given ID."
   (when manager
-    (bordeaux-threads:with-lock-held ((zone-manager-lock manager))
+    (%with-zone-lock ((zone-manager-lock manager))
       (remhash id (zone-manager-zones manager)))))
 
 (defun zone-get (id &optional (manager *zone-manager*))
   "Get zone information for the given ID. Returns nil if not found."
   (when manager
-    (bordeaux-threads:with-lock-held ((zone-manager-lock manager))
+    (%with-zone-lock ((zone-manager-lock manager))
       (gethash id (zone-manager-zones manager)))))
 
 ;;; Zone scanning
@@ -139,8 +149,7 @@
                               ;; Extract marker ID
                               (setf marker-id (subseq text i (1+ start)))
                               ;; Get user ID from reverse map
-                              (let ((user-id (bordeaux-threads:with-lock-held
-                                                 ((zone-manager-lock manager))
+                              (let ((user-id (%with-zone-lock ((zone-manager-lock manager))
                                                (gethash marker-id (zone-manager-rids manager)))))
                                 (when user-id
                                   (setf found-marker t)
@@ -196,7 +205,7 @@
 
         ;; Store zones in manager
         (when (zone-manager-enabled manager)
-          (bordeaux-threads:with-lock-held ((zone-manager-lock manager))
+          (%with-zone-lock ((zone-manager-lock manager))
             (maphash (lambda (id zone-info)
                        (setf (gethash id (zone-manager-zones manager)) zone-info))
                      zones)))

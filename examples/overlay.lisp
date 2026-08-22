@@ -11,7 +11,6 @@
 
 (defpackage :tuition.examples.overlay
   (:use :cl)
-  (:local-nicknames (#:tui #:tuition))
   (:documentation "Overlay example demonstrating text compositing."))
 
 (in-package :tuition.examples.overlay)

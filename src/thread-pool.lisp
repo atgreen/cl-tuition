@@ -119,11 +119,6 @@
 
 ;;; Integration with existing command system
 
-(defparameter *default-pool-size* 4
-  "Default number of worker threads in the command pool.
-
-  Can be overridden via :pool-size option to make-program.")
-
 (defparameter *use-thread-pool* t
   "When true, use thread pool for command execution.
   When false, spawn a new thread for each command (original behavior).

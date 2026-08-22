@@ -2,8 +2,7 @@
 (asdf:load-system :tuition)
 
 (defpackage :tuition.examples.showcase-test
-  (:use :cl)
-  (:local-nicknames (#:tui #:tuition)))
+  (:use :cl))
 
 (in-package :tuition.examples.showcase-test)
 

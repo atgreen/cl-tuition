@@ -9,8 +9,7 @@
 (asdf:load-system :tuition)
 
 (defpackage :tuition.examples.showcase-interactive
-  (:use :cl)
-  (:local-nicknames (#:tui #:tuition)))
+  (:use :cl))
 
 (in-package :tuition.examples.showcase-interactive)
 
@@ -185,10 +184,6 @@
          (item-height (max 1 (- (history-height model) 2))))
     (let ((rendered-items
            (loop for item in (history-items model)
-                 for i from 0
-                 for bg = (if (string= item (history-active model))
-                             *highlight*
-                             *subtle*)
                  collect (let* ((content-width (max 1 (- item-width 4)))
                                 (content-height (max 1 (- item-height 2)))
                                 (wrapped-text (tui:wrap-text item content-width :break-words t))
@@ -213,26 +208,8 @@
                                                 :width item-width
                                                 :height item-height))
                                 (rendered (tui:render-styled history-style final-text)))
-                           ;; Debug: write rendered box info to file
-                           (with-open-file (f "/tmp/history-margins-debug.txt" :direction :output
-                                              :if-exists :append :if-does-not-exist :create)
-                             (format f "Box ~A rendered width: ~A~%" i (tui:width rendered))
-                             (format f "First line: '~A'~%~%" (car (tui:split-string-by-newline rendered)))
-                             (finish-output f))
                            rendered))))
-      (let ((result (apply #'tui:join-horizontal tui:+top+ rendered-items)))
-        ;; Debug the final joined result
-        (with-open-file (f "/tmp/history-margins-debug.txt" :direction :output
-                           :if-exists :supersede :if-does-not-exist :create)
-          (format f "Number of boxes: ~A~%" (length rendered-items))
-          (format f "First box width: ~A~%" (tui:width (first rendered-items)))
-          (format f "Final joined width: ~A~%~%" (tui:width result))
-          (format f "First 3 lines of result:~%")
-          (let ((lines (tui:split-string-by-newline result)))
-            (loop for i from 0 below (min 3 (length lines))
-                  do (format f "~A: '~A'~%" i (nth i lines))))
-          (finish-output f))
-        result))))
+      (apply #'tui:join-horizontal tui:+top+ rendered-items))))
 
 ;;; Main Model
 (defclass showcase-model ()

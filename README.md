@@ -492,10 +492,34 @@ You can customize reporting by rebinding `tui:*error-handler*`.
   (tui:run (tui:make-program (make-instance 'hello-world::hello-model))))
 ```
 
+## Single-threaded mode
+
+Tuition can be built without `bordeaux-threads` or `trivial-channels` by
+pushing `:tuition-single-threaded` onto `*features*` **before** loading the
+system. This is a compile-time switch: reload the system after changing the
+feature, and do not mix fasls compiled with and without it in one image.
+
+```lisp
+(pushnew :tuition-single-threaded *features*)
+(asdf:load-system :tuition)
+```
+
+In single-threaded mode:
+
+- Input, message processing, and async commands share one cooperative event
+  loop (no input thread or command thread pool).
+- `:pool-size` passed to `make-program` is ignored (always treated as `nil`).
+- `batch` still submits every command, but each runs one at a time on the
+  main loop instead of concurrently.
+- `cmd-sequence` runs commands in order, one per loop turn (same ordering as
+  the threaded build, without a background thread).
+- `join` is a no-op.
+
 ## Dependencies
 
-- `bordeaux-threads` — cross‑platform threading
-- `trivial-channels` — thread‑safe message passing
+- `bordeaux-threads` — [OPTIONAL] cross‑platform threading 
+- `trivial-channels` — [OPTIONAL] thread‑safe message passing
+
 
 ## License
 
