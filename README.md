@@ -536,16 +536,11 @@ In single-threaded mode:
   the threaded build, without a background thread).
 - `join` is a no-op.
 
-The `scripts/try-clisp.lisp` harness uses this mode to smoke-test the
-no-threading code path on CLISP; CLISP itself is not a supported deployment
-target.
-
 ## Dependencies
 
-- `bordeaux-threads` — cross‑platform threading (omitted when
-  `:tuition-single-threaded` is on `*features*` before load)
-- `trivial-channels` — thread‑safe message passing (replaced by an internal
-  queue in single-threaded mode)
+- `bordeaux-threads` — [OPTIONAL] cross‑platform threading 
+- `trivial-channels` — [OPTIONAL] thread‑safe message passing
+
 
 ## License
 
