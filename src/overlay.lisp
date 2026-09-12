@@ -27,22 +27,13 @@ Returns the substring with proper ANSI handling."
     (loop while (and (< i len) (< visible-cols columns)) do
       (let ((char (char str i)))
         (cond
-          ;; ANSI escape sequence - include in output but don't count width
+          ;; Escape sequence (CSI, OSC, ...) - include in output but
+          ;; don't count width
           ((char= char #\Escape)
-           (vector-push-extend char result)
-           (incf i)
-           ;; Copy until we hit the final byte (0x40-0x7E range)
-           (when (and (< i len) (char= (char str i) #\[))
-             (vector-push-extend (char str i) result)
-             (incf i)
-             (loop while (< i len) do
-               (let* ((c (char str i))
-                      (code (char-code c)))
-                 (vector-push-extend c result)
-                 (incf i)
-                 ;; Final byte in range 0x40-0x7E ends the sequence
-                 (when (and (>= code #x40) (<= code #x7E))
-                   (return))))))
+           (let ((end (%escape-sequence-end str i)))
+             (loop for k from i below end
+                   do (vector-push-extend (char str k) result))
+             (setf i end)))
           ;; Regular character
           (t
            (let ((char-width (%char-display-width char)))
@@ -160,16 +151,9 @@ Preserves trailing ANSI codes and content after the dropped portion."
     (loop while (and (< i len) (< visible-cols columns)) do
       (let ((char (char str i)))
         (cond
-          ;; ANSI escape sequence - skip but don't count
+          ;; Escape sequence (CSI, OSC, ...) - skip but don't count
           ((char= char #\Escape)
-           (incf i)
-           (when (and (< i len) (char= (char str i) #\[))
-             (incf i)
-             (loop while (< i len) do
-               (let ((code (char-code (char str i))))
-                 (incf i)
-                 (when (and (>= code #x40) (<= code #x7E))
-                   (return))))))
+           (setf i (%escape-sequence-end str i)))
           ;; Regular character
           (t
            (incf visible-cols (%char-display-width char))
@@ -344,14 +328,7 @@ X is the column (0 = left edge), Y is the row (0 = top edge)."
       (let ((char (char str i)))
         (cond
           ((char= char #\Escape)
-           (incf i)
-           (when (and (< i len) (char= (char str i) #\[))
-             (incf i)
-             (loop while (< i len) do
-               (let ((code (char-code (char str i))))
-                 (incf i)
-                 (when (and (>= code #x40) (<= code #x7E))
-                   (return))))))
+           (setf i (%escape-sequence-end str i)))
           (t
            (vector-push-extend char result)
            (incf i)))))

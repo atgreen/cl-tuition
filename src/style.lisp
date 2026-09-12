@@ -805,6 +805,41 @@ This is a pragmatic subset covering CJK, Hangul, Hiragana/Katakana, and fullwidt
       ((%east-asian-wide-p code) 2)
       (t 1))))
 
+(defun %escape-sequence-end (str i)
+  "Return the index just past the escape sequence starting at I, which
+must point at ESC. Handles CSI (ESC [ ... final byte #x40-#x7E) and
+OSC (ESC ] ... terminated by BEL or ST, i.e. ESC \\) — the latter is
+what OSC 8 hyperlinks use. Any other ESC <char> is treated as a
+two-character sequence."
+  (let ((len (length str))
+        (j (1+ i)))
+    (if (>= j len)
+        j
+        (case (char str j)
+          (#\[
+           (incf j)
+           ;; Skip parameter and intermediate bytes until the final byte
+           (loop while (< j len) do
+             (let ((code (char-code (char str j))))
+               (incf j)
+               (when (and (>= code #x40) (<= code #x7E))
+                 (return))))
+           j)
+          (#\]
+           (incf j)
+           ;; OSC payload runs to BEL or ST (ESC \)
+           (loop while (< j len) do
+             (let ((c (char str j)))
+               (incf j)
+               (cond ((char= c #\Bel) (return))
+                     ((and (char= c #\Escape)
+                           (< j len)
+                           (char= (char str j) #\\))
+                      (incf j)
+                      (return)))))
+           j)
+          (t (1+ j))))))
+
 (defun visible-length (str)
   "Calculate visible display width of STR, excluding ANSI escapes and accounting for wide/combining chars."
   (let ((result 0)
@@ -813,20 +848,9 @@ This is a pragmatic subset covering CJK, Hangul, Hiragana/Katakana, and fullwidt
     (loop while (< i len) do
       (let ((char (char str i)))
         (cond
-          ;; Start of ESC sequence
+          ;; Skip the entire escape sequence (CSI, OSC, or two-char)
           ((char= char #\Escape)
-           ;; Skip entire CSI sequence: ESC [ ... <final-byte>
-           ;; Final byte is in range 0x40-0x7E (includes both 'm' and 'z')
-           (incf i)  ; skip ESC
-           (when (and (< i len) (char= (char str i) #\[))
-             (incf i)  ; skip [
-             ;; Skip parameter bytes and intermediate bytes until final byte
-             (loop while (< i len) do
-               (let ((code (char-code (char str i))))
-                 (incf i)
-                 ;; Final byte range: 0x40-0x7E (@A-Z[\]^_`a-z{|}~)
-                 (when (and (>= code #x40) (<= code #x7E))
-                   (return))))))
+           (setf i (%escape-sequence-end str i)))
           ;; Regular character - count its display width
           (t
            (incf result (%char-display-width char))
@@ -1141,13 +1165,9 @@ ANSI escape sequences are preserved but not counted for width."
             ((char= ch #\Newline)
              (push (%mk-rtok :type :newline :text (string ch)) out)
              (incf i))
-            ;; ANSI escape sequence: ESC ... m
+            ;; ANSI escape sequence (CSI, OSC hyperlink, ...)
             ((char= ch #\Escape)
-             (let ((j (1+ i)))
-               (loop while (and (< j n)
-                                (not (char= (char str j) #\m)))
-                     do (incf j))
-               (when (< j n) (incf j))
+             (let ((j (%escape-sequence-end str i)))
                (push-token :ansi i j)
                (setf i j)))
             ;; whitespace run

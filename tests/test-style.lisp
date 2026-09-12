@@ -35,6 +35,30 @@
                    #\Escape #\Escape #\Escape #\Escape)))
     (is (= 9 (visible-length s)))))
 
+(test visible-length-osc8-hyperlink
+  "visible-length ignores OSC 8 hyperlink sequences (ST-terminated)."
+  (let ((s (format nil "~C]8;;https://example.com/long/path~C\\link~C]8;;~C\\"
+                   #\Escape #\Escape #\Escape #\Escape)))
+    (is (= 4 (visible-length s)))))
+
+(test visible-length-osc-bel-terminated
+  "visible-length ignores OSC sequences terminated by BEL."
+  (let ((s (format nil "~C]8;;https://example.com~Cab~C]8;;~C"
+                   #\Escape #\Bel #\Escape #\Bel)))
+    (is (= 2 (visible-length s)))))
+
+(test visible-length-osc8-render-styled
+  "visible-length of render-styled hyperlink output counts only the label."
+  (let ((linked (render-styled (make-style :hyperlink "https://example.com/x") "hello")))
+    (is (= 5 (visible-length linked)))))
+
+(test truncate-text-osc8-hyperlink
+  "truncate-text does not count OSC 8 hyperlink payload toward the width.
+   Width 6 leaves room for the reserved ellipsis column on top of the
+   5-column label (truncate-text always reserves it; tracked separately)."
+  (let ((linked (render-styled (make-style :hyperlink "https://example.com/some/path") "hello")))
+    (is (string= linked (truncate-text linked 6)))))
+
 ;;; --- color-256, color-rgb, parse-hex-color ---
 
 (test color-256-foreground
