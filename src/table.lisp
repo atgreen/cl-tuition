@@ -31,6 +31,7 @@
    #:table-style-func
    #:table-width
    #:table-height
+   #:table-fit-content
 
    ;; Building tables
    #:table-row
@@ -65,6 +66,9 @@
 narrower than a cell's content, the cell soft-wraps onto multiple lines")
    (width :initform nil :accessor table-width
           :documentation "Total table width")
+   (fit-content :initform nil :accessor table-fit-content
+                :documentation "When true, WIDTH acts as a maximum: the table
+renders at its content width unless that exceeds WIDTH")
    (height :initform nil :accessor table-height
            :documentation "Total table height")
    (border-top :initform t :accessor table-border-top)
@@ -78,7 +82,7 @@ narrower than a cell's content, the cell soft-wraps onto multiple lines")
   (:documentation "A table for rendering tabular data."))
 
 (defun make-table (&key headers rows border border-style style-func border-row
-                        widths width height
+                        widths width height fit-content
                         (border-top t border-top-p) (border-bottom t border-bottom-p)
                         (border-left t border-left-p) (border-right t border-right-p))
   "Create a new table."
@@ -92,6 +96,7 @@ narrower than a cell's content, the cell soft-wraps onto multiple lines")
     (when widths (setf (table-widths tbl) widths))
     (when width (setf (table-width tbl) width))
     (when height (setf (table-height tbl) height))
+    (when fit-content (setf (table-fit-content tbl) fit-content))
     (when border-top-p (setf (table-border-top tbl) border-top))
     (when border-bottom-p (setf (table-border-bottom tbl) border-bottom))
     (when border-left-p (setf (table-border-left tbl) border-left))
@@ -193,7 +198,9 @@ table (#620): a row's height grows to the tallest wrapped cell."
 (defun %fit-column-widths (table widths)
   "Expand or shrink WIDTHS so the rendered table matches TABLE-WIDTH.  Columns
 never shrink below one column unless the width budget makes that impossible
-(ports lipgloss #671).  Returns a fresh list; a no-op when TABLE-WIDTH is unset."
+(ports lipgloss #671).  With FIT-CONTENT, TABLE-WIDTH is a maximum: columns
+never expand to fill it (ports lipgloss #697).  Returns a fresh list; a no-op
+when TABLE-WIDTH is unset."
   (let ((target (table-width table)))
     (if (or (null target) (<= target 0) (null widths))
         widths
@@ -203,8 +210,12 @@ never shrink below one column unless the width budget makes that impossible
                (total (reduce #'+ ws)))
           (cond
             ((= total budget) ws)
-            ;; Expand evenly, distributing any remainder to the leftmost columns.
+            ;; Content narrower than the budget: render at content width when
+            ;; fitting to content, otherwise expand evenly, distributing any
+            ;; remainder to the leftmost columns.
             ((< total budget)
+             (when (table-fit-content table)
+               (return-from %fit-column-widths ws))
              (let ((extra (- budget total)))
                (loop for i from 0 while (> extra 0)
                      do (incf (nth (mod i num-cols) ws))

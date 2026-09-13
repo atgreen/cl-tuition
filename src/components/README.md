@@ -148,6 +148,14 @@ as before.
 - `PageUp`/`PageDown` - Page the viewport
 - `Backspace`/`Delete`/`Enter` - Delete and newline
 - `Ctrl-v` (or a bracketed paste) - Paste
+- `Shift-←/→/↑/↓` (and `Ctrl-Shift-←/→` by word) - Extend the selection
+- `Ctrl-g` - Select all; `Ctrl-Shift-c` - Copy the selection (OSC 52)
+
+**Selection:** shift-modified movement selects text; typing, pasting, or
+deleting replaces the selection.  Pointer drags map through
+`textarea-begin-selection` / `textarea-extend-selection` /
+`textarea-end-selection` (coordinates relative to the rendered textarea),
+and `textarea-selected-text` reads the selection back.
 
 ### Progress Bar
 
@@ -245,6 +253,63 @@ Scrollable list with selection and keyboard navigation.
 > Banana
   Cherry
   Date
+```
+
+### Tree
+
+A navigable tree with expand/collapse, hidden nodes, and viewport scrolling.
+(For static tree rendering, see `tuition.render.tree` instead.)
+
+```lisp
+(use-package :tui.tree)
+
+;; Build nodes: MAKE-NODE takes a value and children (values become leaves)
+(defparameter *tree*
+  (make-tree
+    :root (make-node "project"
+                     "README.md"
+                     (make-node "src" "main.lisp" "util.lisp"))
+    :height 10))
+
+;; In your update - delegate key messages
+(defmethod tui:update ((model my-model) msg)
+  (multiple-value-bind (new-tree cmd)
+      (tree-update (model-tree model) msg)
+    (setf (model-tree model) new-tree)
+    (values model cmd)))
+
+;; In your view
+(defmethod tui:view ((model my-model))
+  (tree-view (model-tree model)))
+
+;; Programmatic access
+(tree-selected-node *tree*)                  ; => selected TREE-NODE (or nil)
+(node-value (tree-selected-node *tree*))
+(tree-toggle-current-node *tree*)
+(node-set-hidden some-node t)                ; hide a subtree
+```
+
+**Options:**
+- `:height` — viewport height in lines (0 = show everything); `:scroll-off`
+  keeps that many lines visible around the selection while scrolling
+- `:open-character` / `:closed-character` / `:cursor-character` — indicator
+  glyphs (default `▼` / `▶` / `→`)
+- `:selected-style` (default bold), `:node-style`, `:parent-style`,
+  `:root-style`, `:enumerator-style`, `:cursor-style`
+
+**Keybindings:**
+- `↓/j/Ctrl-n` / `↑/k/Ctrl-p` - Move selection
+- `PgDn/Space/f` / `PgUp/b` - Page; `d`/`u` - Half page
+- `g`/`Home` / `G`/`End` - Jump to top/bottom
+- `Enter` - Toggle; `→/l` - Open; `←/h` - Close
+
+**Output example:**
+```
+→ ▼ project
+  ├── README.md
+  └── ▼ src
+      ├── main.lisp
+      └── util.lisp
 ```
 
 ### Date Picker

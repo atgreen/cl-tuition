@@ -48,7 +48,8 @@
                              (:file "help")
                              (:file "datepicker")
                              (:file "list")
-                             (:file "table"))))
+                             (:file "table")
+                             (:file "tree"))))
   :in-order-to ((test-op (test-op "tuition/tests"))))
 
 (defsystem "tuition/tests"
@@ -72,6 +73,7 @@
                              (:file "test-textarea")
                              (:file "test-textinput")
                              (:file "test-viewport")
-                             (:file "test-list-component"))))
+                             (:file "test-list-component")
+                             (:file "test-tree-component"))))
   :perform (test-op (o c)
                     (symbol-call :tuition-tests :run-tests)))

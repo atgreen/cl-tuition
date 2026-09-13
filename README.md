@@ -29,7 +29,7 @@ Tuition handles terminal concerns for you (raw mode, alternate screen, input dec
 - Commands: Functions that return messages asynchronously, enabling timers, I/O, and background work without blocking.
 - Program: A managed loop that sets up the terminal, processes messages, runs commands, and refreshes the screen.
 - Pure Rendering: Rendering returns strings; styling, layout, borders, and reflow are composition-friendly utilities.
-- Components: Reusable widgets (spinner, progress, list, table, text input, textarea, viewport, paginator, stopwatch, timer, help, datepicker) that manage their own state and view.
+- Components: Reusable widgets (spinner, progress, list, table, tree, text input, textarea, viewport, paginator, stopwatch, timer, help, datepicker) that manage their own state and view.
 - Zones: Named regions to map mouse coordinates to stable identifiers for hover/click interactions.
 
 ## Features
@@ -46,7 +46,7 @@ Tuition handles terminal concerns for you (raw mode, alternate screen, input dec
 - Borders (normal, rounded, thick, double, block, ASCII, markdown) with title bars and drop shadows
 - Overlay compositing with transparent shadow effects
 - Reflow helpers (wrapping, truncation, ellipsizing, indentation)
-- Built-in components: spinner, progress bar, list (paginated + filterable), table (with width/height fitting and overflow), text input, textarea (soft-wrap, dynamic height), viewport (with soft-wrap), paginator, stopwatch, timer, help, datepicker
+- Built-in components: spinner, progress bar, list (paginated + filterable), table (with width/height fitting and overflow), tree (navigable, expand/collapse), text input, textarea (soft-wrap, dynamic height, selection), viewport (with soft-wrap), paginator, stopwatch, timer, help, datepicker
 - Native terminal (taskbar) progress bar via OSC 9;4
 - Zones for advanced mouse interactions (define and query named regions)
 
@@ -440,10 +440,22 @@ Use components when you want common interactions without re‑implementing state
 ;; Textarea (multi-line; :soft-wrap, :dynamic-height, and :max-content-height
 ;; are optional). Word motion/deletion is bound to Ctrl+Left/Right and
 ;; Ctrl+Backspace/Delete as well as the Alt-key readline bindings.
+;; Shift-modified movement selects text (Ctrl+G selects all); typing or
+;; deleting replaces the selection, and pointer drags can select via
+;; textarea-begin/extend/end-selection.
 (tuition.components.textarea:textarea-view
   (tuition.components.textarea:make-textarea
     :width 40 :height 6 :placeholder "Write a message..."
     :soft-wrap t :dynamic-height t))
+
+;; Tree (navigable; Enter toggles, arrows/hjkl move, g/G jump)
+(let ((tr (tuition.components.tree:make-tree
+            :root (tuition.components.tree:make-node
+                    "project"
+                    "README.md"
+                    (tuition.components.tree:make-node "src" "main.lisp" "util.lisp"))
+            :height 10)))
+  (tuition.components.tree:tree-view tr))
 
 ;; Viewport (scrollable region; :soft-wrap wraps long lines to the width)
 (let ((vp (tuition.components.viewport:make-viewport

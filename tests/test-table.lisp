@@ -280,3 +280,35 @@ the table still renders (lipgloss #671)."
       (is (search "1" view))
       (is (search "Alice" view))
       (is (search "2" view)))))
+
+;;; --- Fit content (lipgloss #697) ---
+
+(test table-fit-content-treats-width-as-maximum
+  "With FIT-CONTENT, a width larger than the content leaves the table at
+content width instead of expanding columns."
+  (let* ((plain (tuition.render.table:make-table
+                 :headers '("A" "B")
+                 :rows '(("x" "y"))))
+         (content-width (tuition:visible-length
+                         (first (%tbl-lines
+                                 (tuition.render.table:table-render plain)))))
+         (fitted (tuition.render.table:make-table
+                  :headers '("A" "B")
+                  :rows '(("x" "y"))
+                  :width 30
+                  :fit-content t)))
+    (let ((first-line (first (%tbl-lines
+                              (tuition.render.table:table-render fitted)))))
+      (is (= content-width (tuition:visible-length first-line)))
+      (is (< (tuition:visible-length first-line) 30)))))
+
+(test table-fit-content-still-shrinks-to-width
+  "With FIT-CONTENT, content wider than the width is still constrained to it."
+  (let ((tbl (tuition.render.table:make-table
+              :headers '("Column One" "Column Two")
+              :rows '(("some long content here" "more content"))
+              :width 20
+              :fit-content t)))
+    (let ((first-line (first (%tbl-lines
+                              (tuition.render.table:table-render tbl)))))
+      (is (<= (tuition:visible-length first-line) 20)))))

@@ -68,7 +68,21 @@
    #:textarea-transpose-chars
    #:textarea-capitalize-word
    #:textarea-lowercase-word
-   #:textarea-uppercase-word))
+   #:textarea-uppercase-word
+
+   ;; Selection (ports bubbles #1029)
+   #:textarea-selection-style
+   #:textarea-position-at
+   #:textarea-begin-selection
+   #:textarea-extend-selection
+   #:textarea-end-selection
+   #:textarea-select-all
+   #:textarea-clear-selection
+   #:textarea-has-selection-p
+   #:textarea-selection
+   #:textarea-selected-text
+   #:textarea-delete-selection
+   #:textarea-copy-selection))
 
 (in-package #:tuition.components.textarea)
 
@@ -124,7 +138,19 @@
                        :initform 0
                        :documentation "Maximum content height in visual (wrapped) rows.  When
 set (> 0), inserts and newlines are blocked once the content reaches this many
-visual lines (0 = unlimited)."))
+visual lines (0 = unlimited).")
+   (sel-anchor :initform nil :accessor textarea-sel-anchor
+               :documentation "Selection anchor as (row . col), or nil when no
+selection is set.  The anchor is where the selection began; either end may
+sort before the other -- use TEXTAREA-SELECTION for a normalized range.")
+   (sel-head :initform nil :accessor textarea-sel-head
+             :documentation "Selection head as (row . col), or nil.  The head
+follows the cursor/pointer as the selection extends.")
+   (selecting :initform nil :accessor textarea-selecting
+              :documentation "Whether a pointer drag is in progress")
+   (selection-style :initarg :selection-style :accessor textarea-selection-style
+                    :initform (tuition:make-style :reverse t)
+                    :documentation "Style applied to selected text"))
   (:documentation "A multi-line text input component."))
 
 (defun make-textarea (&key (width 40) (height 6) (placeholder "")
@@ -156,6 +182,7 @@ visual lines (0 = unlimited)."))
   (setf (textarea-row textarea) 0
         (textarea-col textarea) 0
         (textarea-yoffset textarea) 0)
+  (textarea-clear-selection textarea)
   textarea)
 
 (defun textarea-value (textarea)
@@ -252,6 +279,7 @@ current logical line."
         (textarea-row textarea) 0
         (textarea-col textarea) 0
         (textarea-yoffset textarea) 0)
+  (textarea-clear-selection textarea)
   textarea)
 
 (defun textarea-focus (textarea)
@@ -472,17 +500,56 @@ character immediately left of the cursor.  Empty when not on a word."
     (%ta-word-at line (1- (textarea-col textarea)))))
 
 (defun textarea-cursor-word-backward (textarea)
-  "Move the cursor to the start of the previous word."
-  (let ((b (%ta-prev-word-boundary (textarea-current-line textarea)
-                                   (textarea-col textarea))))
-    (when b (setf (textarea-col textarea) b)))
+  "Move the cursor to the start of the previous word, crossing line
+boundaries like upstream bubbles wordLeft, and stopping at the start of
+the input (bubbles #1036)."
+  (loop
+    (let* ((line (textarea-current-line textarea))
+           (col (textarea-col textarea))
+           (b (%ta-prev-word-boundary line col)))
+      (cond
+        ;; A word starts strictly left of the cursor on this line.
+        ((and (< b col) (< b (length line)) (%ta-word-char-p (char line b)))
+         (setf (textarea-col textarea) b)
+         (return))
+        ;; No word to the left: hop to the end of the previous line.
+        ((> (textarea-row textarea) 0)
+         (decf (textarea-row textarea))
+         (setf (textarea-col textarea)
+               (length (textarea-current-line textarea))))
+        ;; Start of the input.
+        (t
+         (setf (textarea-col textarea) 0)
+         (return)))))
   textarea)
 
 (defun textarea-cursor-word-forward (textarea)
-  "Move the cursor past the current word, or to the end of the line."
-  (let ((f (%ta-next-word-boundary (textarea-current-line textarea)
-                                   (textarea-col textarea))))
-    (when f (setf (textarea-col textarea) f)))
+  "Move the cursor past the current word, crossing line boundaries like
+upstream bubbles wordRight, and stopping at the end of the input."
+  (loop
+    (let* ((line (textarea-current-line textarea))
+           (col (textarea-col textarea))
+           (f (%ta-next-word-boundary line col)))
+      (cond
+        ;; The cursor advances on this line, either onto the start of the
+        ;; next word or past the last word to the end of the line.
+        ((and (> f col)
+              (or (< f (length line))
+                  (position-if #'%ta-word-char-p line :start col)))
+         (setf (textarea-col textarea) f)
+         (return))
+        ;; Rest of the line holds no word: hop to the next line start.
+        ((< (textarea-row textarea) (1- (textarea-line-count textarea)))
+         (incf (textarea-row textarea))
+         (setf (textarea-col textarea) 0)
+         ;; A word may start at column 0; landing there is the target.
+         (let ((next (textarea-current-line textarea)))
+           (when (and (plusp (length next)) (%ta-word-char-p (char next 0)))
+             (return))))
+        ;; End of the input.
+        (t
+         (setf (textarea-col textarea) (length line))
+         (return)))))
   textarea)
 
 (defun textarea-delete-word-backward (textarea)
@@ -601,6 +668,223 @@ At end of line, swaps the last two characters; at the start, does nothing."
     (setf (textarea-col textarea)
           (length (textarea-current-line textarea))))
   textarea)
+
+;;; Selection (ports the bubbles textarea selection feature, #1029).
+;;; A selection is a pair of buffer positions -- an anchor where it began and
+;;; a head that follows the cursor or pointer.  Positions are (row . col)
+;;; conses; col may equal the line length, meaning "just past the last char".
+
+(defun %ta-pos-before-p (a b)
+  "True when position A=(row . col) sorts before B in the buffer."
+  (or (< (car a) (car b))
+      (and (= (car a) (car b)) (< (cdr a) (cdr b)))))
+
+(defun textarea-has-selection-p (textarea)
+  "True when a non-empty selection is active."
+  (let ((a (textarea-sel-anchor textarea))
+        (h (textarea-sel-head textarea)))
+    (and a h (not (equal a h)))))
+
+(defun textarea-selection (textarea)
+  "Return the selected range as (VALUES START-ROW START-COL END-ROW END-COL),
+normalized so start sorts before end, or NIL when nothing is selected."
+  (when (textarea-has-selection-p textarea)
+    (let ((a (textarea-sel-anchor textarea))
+          (h (textarea-sel-head textarea)))
+      (when (%ta-pos-before-p h a) (rotatef a h))
+      (values (car a) (cdr a) (car h) (cdr h)))))
+
+(defun textarea-clear-selection (textarea)
+  "Remove the current selection, if any."
+  (setf (textarea-sel-anchor textarea) nil
+        (textarea-sel-head textarea) nil
+        (textarea-selecting textarea) nil)
+  textarea)
+
+(defun textarea-select-all (textarea)
+  "Select the entire buffer."
+  (let ((last (1- (textarea-line-count textarea))))
+    (when (>= last 0)
+      (setf (textarea-sel-anchor textarea) (cons 0 0)
+            (textarea-sel-head textarea)
+            (cons last (length (aref (textarea-lines textarea) last)))
+            (textarea-selecting textarea) nil)))
+  textarea)
+
+(defun textarea-selected-text (textarea)
+  "Return the selected text, with lines joined by newlines.  Empty when
+nothing is selected."
+  (multiple-value-bind (sr sc er ec) (textarea-selection textarea)
+    (if (null sr)
+        ""
+        (let ((lines (textarea-lines textarea)))
+          (if (= sr er)
+              (let ((line (aref lines sr)))
+                (subseq line (min sc (length line)) (min ec (length line))))
+              (with-output-to-string (s)
+                (loop for row from sr to er
+                      for line = (aref lines row)
+                      do (cond
+                           ((= row sr)
+                            (write-string line s :start (min sc (length line))))
+                           ((= row er)
+                            (write-string line s :end (min ec (length line))))
+                           (t (write-string line s)))
+                         (when (< row er) (write-char #\Newline s)))))))))
+
+(defun textarea-delete-selection (textarea)
+  "Delete the selected text, put the cursor at the start of the former
+selection, and clear the selection state.  A no-op when nothing is selected."
+  (multiple-value-bind (sr sc er ec) (textarea-selection textarea)
+    (when sr
+      (let ((lines (textarea-lines textarea)))
+        (if (= sr er)
+            (let* ((line (aref lines sr))
+                   (end-col (min ec (length line)))
+                   (start-col (min sc end-col)))
+              (setf (aref lines sr)
+                    (concatenate 'string
+                                 (subseq line 0 start-col)
+                                 (subseq line end-col)))
+              (setf (textarea-row textarea) sr)
+              (textarea-set-cursor textarea start-col))
+            (let* ((head-line (aref lines sr))
+                   (tail-line (aref lines er))
+                   (end-col (min ec (length tail-line)))
+                   (start-col (min sc (length head-line)))
+                   (merged (concatenate 'string
+                                        (subseq head-line 0 start-col)
+                                        (subseq tail-line end-col)))
+                   (removed (- er sr))
+                   (n (length lines))
+                   (new-lines (make-array (- n removed)
+                                          :adjustable t
+                                          :fill-pointer (- n removed))))
+              (loop for i from 0 below sr
+                    do (setf (aref new-lines i) (aref lines i)))
+              (setf (aref new-lines sr) merged)
+              (loop for i from (1+ er) below n
+                    do (setf (aref new-lines (- i removed)) (aref lines i)))
+              (setf (textarea-lines textarea) new-lines)
+              (setf (textarea-row textarea) sr)
+              (textarea-set-cursor textarea start-col))))
+      (textarea-clear-selection textarea)))
+  textarea)
+
+(defun textarea-copy-selection (textarea)
+  "Return a command that copies the selected text to the system clipboard via
+OSC 52, or NIL when nothing is selected."
+  (when (textarea-has-selection-p textarea)
+    (tuition:set-clipboard-cmd (textarea-selected-text textarea))))
+
+(defun %ta-start-keyboard-selection (textarea)
+  "Anchor a keyboard-driven selection at the cursor unless one is active."
+  (unless (textarea-sel-anchor textarea)
+    (setf (textarea-sel-anchor textarea)
+          (cons (textarea-row textarea) (textarea-col textarea))))
+  (setf (textarea-sel-head textarea)
+        (cons (textarea-row textarea) (textarea-col textarea))))
+
+(defun %ta-update-keyboard-selection (textarea)
+  "Move the selection head to the cursor after a keyboard movement."
+  (setf (textarea-sel-head textarea)
+        (cons (textarea-row textarea) (textarea-col textarea))))
+
+(defun %ta-gutter-width (textarea)
+  "Columns rendered left of the text content: the prompt, plus the
+line-number column when enabled.  Pointer coordinates are offset by this
+much before being mapped to a column."
+  (+ (tuition:visible-length (textarea-prompt textarea))
+     (if (textarea-show-line-numbers textarea)
+         ;; The view pads numbers to ln-width (digits + 2) plus one space.
+         (+ 3 (length (write-to-string (textarea-line-count textarea))))
+         0)))
+
+(defun %ta-char-index-for-column (line start end target-col)
+  "Index in LINE of the character occupying display column TARGET-COL within
+the segment [START, END), accounting for wide characters.  A column past the
+segment's width yields END."
+  (let ((w 0))
+    (loop for i from start below end
+          for cw = (tuition:visible-length (string (char line i)))
+          do (when (> (+ w cw) target-col)
+               (return-from %ta-char-index-for-column i))
+             (incf w cw))
+    end))
+
+(defun textarea-position-at (textarea x y)
+  "Map coordinates within the textarea's rendered area to a buffer position,
+returned as (VALUES ROW COL).  (0, 0) is the textarea's top-left cell,
+including the prompt/line-number gutter; callers rendering the textarea at an
+offset must subtract that offset first.  Coordinates outside the content
+resolve to the nearest position."
+  (let* ((lines (textarea-lines textarea))
+         (target-line (+ y (textarea-yoffset textarea)))
+         (content-x (max 0 (- x (%ta-gutter-width textarea)))))
+    (when (or (zerop (length lines)) (< target-line 0))
+      (return-from textarea-position-at (values 0 0)))
+    (flet ((end-of-buffer ()
+             (let ((last (1- (length lines))))
+               (values last (length (aref lines last))))))
+      (if (textarea-soft-wrap textarea)
+          (let ((visuals (%ta-visual-lines textarea)))
+            (if (< target-line (length visuals))
+                (let* ((v (aref visuals target-line))
+                       (row (first v)) (vstart (second v)) (vend (third v))
+                       (line (aref lines row)))
+                  (values row (%ta-char-index-for-column line vstart vend content-x)))
+                (end-of-buffer)))
+          (if (< target-line (length lines))
+              (let ((line (aref lines target-line)))
+                (values target-line
+                        (%ta-char-index-for-column line 0 (length line) content-x)))
+              (end-of-buffer))))))
+
+(defun textarea-begin-selection (textarea x y)
+  "Start a pointer selection at textarea-relative X, Y, discarding any
+previous selection, and move the cursor there.  Pair with
+TEXTAREA-EXTEND-SELECTION as the pointer moves and TEXTAREA-END-SELECTION
+when the drag finishes.  See TEXTAREA-POSITION-AT for the coordinates."
+  (multiple-value-bind (row col) (textarea-position-at textarea x y)
+    (setf (textarea-sel-anchor textarea) (cons row col)
+          (textarea-sel-head textarea) (cons row col)
+          (textarea-selecting textarea) t)
+    (setf (textarea-row textarea) row)
+    (textarea-set-cursor textarea col))
+  textarea)
+
+(defun textarea-extend-selection (textarea x y)
+  "Extend an in-progress pointer selection to X, Y and move the cursor there.
+A no-op unless TEXTAREA-BEGIN-SELECTION started a drag."
+  (when (textarea-selecting textarea)
+    (multiple-value-bind (row col) (textarea-position-at textarea x y)
+      (setf (textarea-sel-head textarea) (cons row col))
+      (setf (textarea-row textarea) row)
+      (textarea-set-cursor textarea col)))
+  textarea)
+
+(defun textarea-end-selection (textarea)
+  "Complete an in-progress drag.  The selection itself is retained so it can
+be read with TEXTAREA-SELECTED-TEXT; a zero-width selection (a plain click)
+is discarded."
+  (setf (textarea-selecting textarea) nil)
+  (when (equal (textarea-sel-anchor textarea) (textarea-sel-head textarea))
+    (textarea-clear-selection textarea))
+  textarea)
+
+(defun %ta-selection-span (textarea row start end)
+  "Half-open char range of logical ROW selected within the segment
+[START, END), returned as (VALUES FROM TO) relative to START, or NIL when the
+segment holds no selected characters."
+  (multiple-value-bind (sr sc er ec) (textarea-selection textarea)
+    (when (and sr (<= sr row er))
+      (let* ((line-len (length (aref (textarea-lines textarea) row)))
+             (row-from (if (= row sr) (min sc line-len) 0))
+             (row-to (if (= row er) (min ec line-len) line-len))
+             (from (max row-from start))
+             (to (min row-to end)))
+        (when (< from to)
+          (values (- from start) (- to start)))))))
 
 ;;; Soft-wrapping: mapping logical lines to visual (wrapped) lines.
 ;;; When SOFT-WRAP is on, the viewport, scroll offset, and cursor-in-view
@@ -821,101 +1105,158 @@ out of sight regardless of how state was mutated."
 (defun %textarea-dispatch-key (textarea msg)
   "Handle one message, returning (values textarea cmd).  Mutates TEXTAREA in
 place.  Only called when the textarea is focused."
-  ;; Bracketed paste.
+  ;; Bracketed paste replaces any active selection.
   (when (typep msg 'tuition:paste-msg)
+    (textarea-delete-selection textarea)
     (textarea-insert-string textarea (tuition:paste-msg-text msg))
     (return-from %textarea-dispatch-key (values textarea nil)))
   (unless (tuition:key-press-msg-p msg)
     (return-from %textarea-dispatch-key (values textarea nil)))
   (let ((key (tuition:key-event-code msg))
         (alt (tuition:mod-contains (tuition:key-event-mod msg) tuition:+mod-alt+))
-        (ctrl (tuition:mod-contains (tuition:key-event-mod msg) tuition:+mod-ctrl+)))
-    (cond
-      ;; Word movement (Ctrl+Left / Ctrl+Right) - must precede plain arrows
-      ((and ctrl (eq key :left))
-       (values (textarea-cursor-word-backward textarea) nil))
-      ((and ctrl (eq key :right))
-       (values (textarea-cursor-word-forward textarea) nil))
+        (ctrl (tuition:mod-contains (tuition:key-event-mod msg) tuition:+mod-ctrl+))
+        (shift (tuition:mod-contains (tuition:key-event-mod msg) tuition:+mod-shift+)))
+    (flet ((select-via (mover)
+             ;; Extend (or start) a keyboard selection across a movement.
+             (%ta-start-keyboard-selection textarea)
+             (funcall mover textarea)
+             (%ta-update-keyboard-selection textarea)
+             (values textarea nil)))
+      (cond
+        ;; Selection: shift-modified movement extends the selection.  The
+        ;; Ctrl+Shift word variants must precede both the plain-shift and the
+        ;; Ctrl-only clauses below.
+        ((and ctrl shift (eq key :left))
+         (select-via #'textarea-cursor-word-backward))
+        ((and ctrl shift (eq key :right))
+         (select-via #'textarea-cursor-word-forward))
+        ((and shift (eq key :left))  (select-via #'textarea-cursor-left))
+        ((and shift (eq key :right)) (select-via #'textarea-cursor-right))
+        ((and shift (eq key :up))    (select-via #'textarea-cursor-up))
+        ((and shift (eq key :down))  (select-via #'textarea-cursor-down))
 
-      ;; Arrow navigation
-      ((eq key :up)    (values (textarea-cursor-up textarea) nil))
-      ((eq key :down)  (values (textarea-cursor-down textarea) nil))
-      ((eq key :left)  (values (textarea-cursor-left textarea) nil))
-      ((eq key :right) (values (textarea-cursor-right textarea) nil))
+        ;; Select all (Ctrl+G, matching upstream) and copy (Ctrl+Shift+C).
+        ((and ctrl (characterp key) (char-equal key #\g))
+         (values (textarea-select-all textarea) nil))
+        ((and ctrl shift (characterp key) (char-equal key #\c))
+         (values textarea (textarea-copy-selection textarea)))
 
-      ;; Paging
-      ((eq key :page-up)   (values (textarea-page-up textarea) nil))
-      ((eq key :page-down) (values (textarea-page-down textarea) nil))
+        ;; Word movement (Ctrl+Left / Ctrl+Right) - must precede plain arrows
+        ((and ctrl (eq key :left))
+         (values (textarea-cursor-word-backward (textarea-clear-selection textarea)) nil))
+        ((and ctrl (eq key :right))
+         (values (textarea-cursor-word-forward (textarea-clear-selection textarea)) nil))
 
-      ;; Document-level begin/end (must precede line start/end below)
-      ((and ctrl (eq key :home)) (values (textarea-move-to-begin textarea) nil))
-      ((and ctrl (eq key :end))  (values (textarea-move-to-end textarea) nil))
+        ;; Arrow navigation
+        ((eq key :up)    (values (textarea-cursor-up (textarea-clear-selection textarea)) nil))
+        ((eq key :down)  (values (textarea-cursor-down (textarea-clear-selection textarea)) nil))
+        ((eq key :left)  (values (textarea-cursor-left (textarea-clear-selection textarea)) nil))
+        ((eq key :right) (values (textarea-cursor-right (textarea-clear-selection textarea)) nil))
 
-      ;; Word movement (Alt+b / Alt+f)
-      ((and alt (characterp key) (char= key #\b))
-       (values (textarea-cursor-word-backward textarea) nil))
-      ((and alt (characterp key) (char= key #\f))
-       (values (textarea-cursor-word-forward textarea) nil))
+        ;; Paging
+        ((eq key :page-up)
+         (values (textarea-page-up (textarea-clear-selection textarea)) nil))
+        ((eq key :page-down)
+         (values (textarea-page-down (textarea-clear-selection textarea)) nil))
 
-      ;; Word deletion (Ctrl+w, Ctrl/Alt+Backspace, Ctrl+Delete, Alt+d)
-      ((and ctrl (characterp key) (char= key #\w))
-       (values (textarea-delete-word-backward textarea) nil))
-      ((and (or ctrl alt) (eq key :backspace))
-       (values (textarea-delete-word-backward textarea) nil))
-      ((and ctrl (eq key :delete))
-       (values (textarea-delete-word-forward textarea) nil))
-      ((and alt (characterp key) (char= key #\d))
-       (values (textarea-delete-word-forward textarea) nil))
+        ;; Document-level begin/end (must precede line start/end below)
+        ((and ctrl (eq key :home))
+         (values (textarea-move-to-begin (textarea-clear-selection textarea)) nil))
+        ((and ctrl (eq key :end))
+         (values (textarea-move-to-end (textarea-clear-selection textarea)) nil))
 
-      ;; Transpose (Ctrl+t) and word case (Alt+c / Alt+l / Alt+u)
-      ((and ctrl (characterp key) (char= key #\t))
-       (values (textarea-transpose-chars textarea) nil))
-      ((and alt (characterp key) (char= key #\c))
-       (values (textarea-capitalize-word textarea) nil))
-      ((and alt (characterp key) (char= key #\l))
-       (values (textarea-lowercase-word textarea) nil))
-      ((and alt (characterp key) (char= key #\u))
-       (values (textarea-uppercase-word textarea) nil))
+        ;; Word movement (Alt+b / Alt+f)
+        ((and alt (characterp key) (char= key #\b))
+         (values (textarea-cursor-word-backward (textarea-clear-selection textarea)) nil))
+        ((and alt (characterp key) (char= key #\f))
+         (values (textarea-cursor-word-forward (textarea-clear-selection textarea)) nil))
 
-      ;; Line start / end (Home, Ctrl+a / End, Ctrl+e)
-      ((or (eq key :home) (and ctrl (characterp key) (char= key #\a)))
-       (values (textarea-cursor-start textarea) nil))
-      ((or (eq key :end) (and ctrl (characterp key) (char= key #\e)))
-       (values (textarea-cursor-end textarea) nil))
+        ;; Word deletion (Ctrl+w, Ctrl/Alt+Backspace, Ctrl+Delete, Alt+d).
+        ;; With an active selection, deletion removes the selection instead.
+        ((and ctrl (characterp key) (char= key #\w))
+         (values (if (textarea-has-selection-p textarea)
+                     (textarea-delete-selection textarea)
+                     (textarea-delete-word-backward textarea))
+                 nil))
+        ((and (or ctrl alt) (eq key :backspace))
+         (values (if (textarea-has-selection-p textarea)
+                     (textarea-delete-selection textarea)
+                     (textarea-delete-word-backward textarea))
+                 nil))
+        ((and ctrl (eq key :delete))
+         (values (if (textarea-has-selection-p textarea)
+                     (textarea-delete-selection textarea)
+                     (textarea-delete-word-forward textarea))
+                 nil))
+        ((and alt (characterp key) (char= key #\d))
+         (values (if (textarea-has-selection-p textarea)
+                     (textarea-delete-selection textarea)
+                     (textarea-delete-word-forward textarea))
+                 nil))
 
-      ;; Character deletion
-      ((eq key :backspace) (values (textarea-delete-char-backward textarea) nil))
-      ((eq key :delete)    (values (textarea-delete-char-forward textarea) nil))
+        ;; Transpose (Ctrl+t) and word case (Alt+c / Alt+l / Alt+u)
+        ((and ctrl (characterp key) (char= key #\t))
+         (values (textarea-transpose-chars textarea) nil))
+        ((and alt (characterp key) (char= key #\c))
+         (values (textarea-capitalize-word textarea) nil))
+        ((and alt (characterp key) (char= key #\l))
+         (values (textarea-lowercase-word textarea) nil))
+        ((and alt (characterp key) (char= key #\u))
+         (values (textarea-uppercase-word textarea) nil))
 
-      ;; Newline
-      ((or (eq key :enter) (and ctrl (characterp key) (char= key #\m)))
-       (values (textarea-newline textarea) nil))
+        ;; Line start / end (Home, Ctrl+a / End, Ctrl+e)
+        ((or (eq key :home) (and ctrl (characterp key) (char= key #\a)))
+         (values (textarea-cursor-start (textarea-clear-selection textarea)) nil))
+        ((or (eq key :end) (and ctrl (characterp key) (char= key #\e)))
+         (values (textarea-cursor-end (textarea-clear-selection textarea)) nil))
 
-      ;; Delete to end of line (Ctrl+K)
-      ((and ctrl (characterp key) (char= key #\k))
-       (let* ((lines (textarea-lines textarea))
-              (row (textarea-row textarea))
-              (col (textarea-col textarea))
-              (line (aref lines row)))
-         (setf (aref lines row) (subseq line 0 col))
-         (values textarea nil)))
+        ;; Character deletion (removes the selection instead when one is active)
+        ((eq key :backspace)
+         (values (if (textarea-has-selection-p textarea)
+                     (textarea-delete-selection textarea)
+                     (textarea-delete-char-backward textarea))
+                 nil))
+        ((eq key :delete)
+         (values (if (textarea-has-selection-p textarea)
+                     (textarea-delete-selection textarea)
+                     (textarea-delete-char-forward textarea))
+                 nil))
 
-      ;; Delete to start of line (Ctrl+U)
-      ((and ctrl (characterp key) (char= key #\u))
-       (let* ((lines (textarea-lines textarea))
-              (row (textarea-row textarea))
-              (col (textarea-col textarea))
-              (line (aref lines row)))
-         (setf (aref lines row) (subseq line col))
-         (setf (textarea-col textarea) 0)
-         (values textarea nil)))
+        ;; Newline (replaces any active selection)
+        ((or (eq key :enter) (and ctrl (characterp key) (char= key #\m)))
+         (textarea-delete-selection textarea)
+         (values (textarea-newline textarea) nil))
 
-      ;; Regular character input
-      ((characterp key)
-       (values (textarea-insert-string textarea (string key)) nil))
+        ;; Delete to end of line (Ctrl+K)
+        ((and ctrl (characterp key) (char= key #\k))
+         (if (textarea-has-selection-p textarea)
+             (values (textarea-delete-selection textarea) nil)
+             (let* ((lines (textarea-lines textarea))
+                    (row (textarea-row textarea))
+                    (col (textarea-col textarea))
+                    (line (aref lines row)))
+               (setf (aref lines row) (subseq line 0 col))
+               (values textarea nil))))
 
-      ;; No match
-      (t (values textarea nil)))))
+        ;; Delete to start of line (Ctrl+U)
+        ((and ctrl (characterp key) (char= key #\u))
+         (if (textarea-has-selection-p textarea)
+             (values (textarea-delete-selection textarea) nil)
+             (let* ((lines (textarea-lines textarea))
+                    (row (textarea-row textarea))
+                    (col (textarea-col textarea))
+                    (line (aref lines row)))
+               (setf (aref lines row) (subseq line col))
+               (setf (textarea-col textarea) 0)
+               (values textarea nil))))
+
+        ;; Regular character input (replaces any active selection)
+        ((characterp key)
+         (textarea-delete-selection textarea)
+         (values (textarea-insert-string textarea (string key)) nil))
+
+        ;; No match
+        (t (values textarea nil))))))
 
 (defun textarea-view (textarea)
   "Render the textarea to a string."
@@ -971,19 +1312,32 @@ place.  Only called when the textarea is focused."
                   (format s "~v@A " ln-width (1+ line-no))
                   (format s "~vA " ln-width "")))
 
-            ;; Content with cursor
-            (if (and focused (= line-no row) (< line-no n))
-                ;; Line with cursor
-                (let ((before (subseq line-text 0 (min col (length line-text))))
-                      (at-cursor (if (< col (length line-text))
-                                    (string (char line-text col))
-                                    " "))
-                      (after (if (< col (length line-text))
-                                (subseq line-text (min (1+ col) (length line-text)))
-                                "")))
-                  (format s "~A[~A]~A" before at-cursor after))
-                ;; Line without cursor
-                (format s "~A" line-text))
+            ;; Content.  A selection covering this line takes precedence over
+            ;; the inline cursor: while selecting, the highlight is the
+            ;; meaningful affordance.
+            (multiple-value-bind (sel-from sel-to)
+                (when (< line-no n)
+                  (%ta-selection-span textarea line-no 0 (length line-text)))
+              (cond
+                (sel-from
+                 (format s "~A~A~A"
+                         (subseq line-text 0 sel-from)
+                         (tuition:render-styled (textarea-selection-style textarea)
+                                                (subseq line-text sel-from sel-to))
+                         (subseq line-text sel-to)))
+                ((and focused (= line-no row) (< line-no n))
+                 ;; Line with cursor
+                 (let ((before (subseq line-text 0 (min col (length line-text))))
+                       (at-cursor (if (< col (length line-text))
+                                      (string (char line-text col))
+                                      " "))
+                       (after (if (< col (length line-text))
+                                  (subseq line-text (min (1+ col) (length line-text)))
+                                  "")))
+                   (format s "~A[~A]~A" before at-cursor after)))
+                (t
+                 ;; Line without cursor
+                 (format s "~A" line-text))))
 
             (push (get-output-stream-string s) result)))))
 
@@ -1039,18 +1393,29 @@ place.  Only called when the textarea is focused."
                   (if first-seg-p
                       (format s "~v@A " ln-width (1+ lrow))
                       (format s "~vA " ln-width "")))
-                (if (and focused (= vi cursor-vi))
-                    ;; Cursor sits within this segment.
-                    (let* ((local-col (- col vstart))
-                           (before (subseq seg 0 (min local-col seg-len)))
-                           (at-cursor (if (< local-col seg-len)
-                                          (string (char seg local-col))
-                                          " "))
-                           (after (if (< local-col seg-len)
-                                      (subseq seg (min (1+ local-col) seg-len))
-                                      "")))
-                      (format s "~A[~A]~A" before at-cursor after))
-                    (format s "~A" seg))))))
+                (multiple-value-bind (sel-from sel-to)
+                    (%ta-selection-span textarea lrow vstart vend)
+                  (cond
+                    (sel-from
+                     ;; Selection highlight takes precedence over the cursor.
+                     (format s "~A~A~A"
+                             (subseq seg 0 sel-from)
+                             (tuition:render-styled
+                              (textarea-selection-style textarea)
+                              (subseq seg sel-from sel-to))
+                             (subseq seg sel-to)))
+                    ((and focused (= vi cursor-vi))
+                     ;; Cursor sits within this segment.
+                     (let* ((local-col (- col vstart))
+                            (before (subseq seg 0 (min local-col seg-len)))
+                            (at-cursor (if (< local-col seg-len)
+                                           (string (char seg local-col))
+                                           " "))
+                            (after (if (< local-col seg-len)
+                                       (subseq seg (min (1+ local-col) seg-len))
+                                       "")))
+                       (format s "~A[~A]~A" before at-cursor after)))
+                    (t (format s "~A" seg))))))))
          result)))
 
     (format nil "~{~A~^~%~}" (nreverse result))))

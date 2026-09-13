@@ -95,6 +95,45 @@
     (tui.textarea:textarea-cursor-word-backward ta)
     (is (equal '(0 0) (ta-cursor ta)))))         ; start of "alpha"
 
+(test textarea-word-backward-crosses-lines
+  "Alt-b at the start of a line jumps to the last word of the previous line
+(upstream wordLeft crosses line boundaries)."
+  (let ((ta (ta-make (format nil "alpha beta~%gamma"))))
+    (ta-set-cursor ta 1 0)
+    (tui.textarea:textarea-cursor-word-backward ta)
+    (is (equal '(0 6) (ta-cursor ta)))))         ; start of "beta"
+
+(test textarea-word-backward-stops-at-input-start
+  "Alt-b at the very start of the input stays put (bubbles #1036)."
+  (let ((ta (ta-make (format nil "  alpha~%beta"))))
+    (ta-set-cursor ta 0 1)                        ; inside leading whitespace
+    (tui.textarea:textarea-cursor-word-backward ta)
+    (is (equal '(0 0) (ta-cursor ta)))
+    (tui.textarea:textarea-cursor-word-backward ta)
+    (is (equal '(0 0) (ta-cursor ta)))))
+
+(test textarea-word-forward-crosses-lines
+  "Alt-f in trailing whitespace hops to the first word of the next line
+(upstream wordRight crosses line boundaries)."
+  (let ((ta (ta-make (format nil "alpha  ~%beta gamma"))))
+    (ta-set-cursor ta 0 6)                        ; inside trailing whitespace
+    (tui.textarea:textarea-cursor-word-forward ta)
+    (is (equal '(1 0) (ta-cursor ta)))))         ; start of "beta"
+
+(test textarea-word-forward-skips-blank-lines
+  "Alt-f from the end of a line skips over blank lines to the next word."
+  (let ((ta (ta-make (format nil "alpha~%~%  beta"))))
+    (ta-set-cursor ta 0 5)                        ; end of "alpha"
+    (tui.textarea:textarea-cursor-word-forward ta)
+    (is (equal '(2 2) (ta-cursor ta)))))         ; start of "beta"
+
+(test textarea-word-forward-stops-at-input-end
+  "Alt-f at the end of the input stays put."
+  (let ((ta (ta-make (format nil "alpha~%beta  "))))
+    (ta-set-cursor ta 1 6)
+    (tui.textarea:textarea-cursor-word-forward ta)
+    (is (equal '(1 6) (ta-cursor ta)))))
+
 (test textarea-key-alt-f-moves-word
   "Alt+f dispatched through update moves a word forward."
   (let ((ta (ta-make "alpha beta")))
@@ -486,3 +525,161 @@ full viewport height; page-up reverses (snap to first visible line, then page)."
   (let ((ta (ta-make "abc")))
     (ta-key ta :backspace)
     (is (string= "abc" (tui.textarea:textarea-value ta)))))
+
+;;; --- selection (bubbles #1029) ---
+
+(test textarea-shift-right-selects
+  "Shift+Right extends a character-wise selection."
+  (let ((ta (ta-make "hello world")))
+    (tui.textarea:textarea-focus ta)
+    (dotimes (i 5) (ta-key ta :right +mod-shift+))
+    (is (tui.textarea:textarea-has-selection-p ta))
+    (is (string= "hello" (tui.textarea:textarea-selected-text ta)))
+    (is (equal '(0 5) (ta-cursor ta)))))
+
+(test textarea-shift-left-selects-backwards
+  "A selection whose head precedes its anchor still reads forward."
+  (let ((ta (ta-make "hello")))
+    (tui.textarea:textarea-focus ta)
+    (ta-set-cursor ta 0 5)
+    (dotimes (i 2) (ta-key ta :left +mod-shift+))
+    (is (string= "lo" (tui.textarea:textarea-selected-text ta)))))
+
+(test textarea-shift-down-selects-lines
+  "Shift+Down selects across a line boundary."
+  (let ((ta (ta-make (format nil "one~%two"))))
+    (tui.textarea:textarea-focus ta)
+    (ta-key ta :down +mod-shift+)
+    (is (string= (format nil "one~%") (tui.textarea:textarea-selected-text ta)))))
+
+(test textarea-ctrl-shift-right-selects-word
+  "Ctrl+Shift+Right selects a word forward."
+  (let ((ta (ta-make "alpha beta")))
+    (tui.textarea:textarea-focus ta)
+    (ta-key ta :right (logior +mod-ctrl+ +mod-shift+))
+    (is (string= "alpha " (tui.textarea:textarea-selected-text ta)))))
+
+(test textarea-select-all
+  "SELECT-ALL covers the whole buffer."
+  (let ((ta (ta-make (format nil "one~%two"))))
+    (tui.textarea:textarea-select-all ta)
+    (is (string= (format nil "one~%two")
+                 (tui.textarea:textarea-selected-text ta)))))
+
+(test textarea-ctrl-g-selects-all
+  "Ctrl+G dispatched through update selects the whole buffer."
+  (let ((ta (ta-make (format nil "one~%two"))))
+    (tui.textarea:textarea-focus ta)
+    (ta-key ta #\g +mod-ctrl+)
+    (is (string= (format nil "one~%two")
+                 (tui.textarea:textarea-selected-text ta)))))
+
+(test textarea-movement-clears-selection
+  "Plain movement discards an active selection."
+  (let ((ta (ta-make "hello")))
+    (tui.textarea:textarea-focus ta)
+    (ta-key ta :right +mod-shift+)
+    (is (tui.textarea:textarea-has-selection-p ta))
+    (ta-key ta :left 0)
+    (is (not (tui.textarea:textarea-has-selection-p ta)))))
+
+(test textarea-delete-selection-single-line
+  "Deleting a single-line selection removes it and homes the cursor there."
+  (let ((ta (ta-make "hello world")))
+    (setf (tui.textarea::textarea-sel-anchor ta) (cons 0 0)
+          (tui.textarea::textarea-sel-head ta) (cons 0 6))
+    (tui.textarea:textarea-delete-selection ta)
+    (is (string= "world" (tui.textarea:textarea-value ta)))
+    (is (equal '(0 0) (ta-cursor ta)))
+    (is (not (tui.textarea:textarea-has-selection-p ta)))))
+
+(test textarea-delete-selection-multi-line
+  "Deleting a multi-line selection merges the boundary lines."
+  (let ((ta (ta-make (format nil "one~%two~%three"))))
+    (setf (tui.textarea::textarea-sel-anchor ta) (cons 0 2)
+          (tui.textarea::textarea-sel-head ta) (cons 2 3))
+    (tui.textarea:textarea-delete-selection ta)
+    (is (string= "onee" (tui.textarea:textarea-value ta)))
+    (is (equal '(0 2) (ta-cursor ta)))
+    (is (= 1 (tui.textarea:textarea-line-count ta)))))
+
+(test textarea-typing-replaces-selection
+  "Typing over a selection deletes it before inserting."
+  (let ((ta (ta-make "hello world")))
+    (tui.textarea:textarea-focus ta)
+    (dotimes (i 5) (ta-key ta :right +mod-shift+))
+    (ta-key ta #\x)
+    (is (string= "x world" (tui.textarea:textarea-value ta)))
+    (is (not (tui.textarea:textarea-has-selection-p ta)))))
+
+(test textarea-backspace-deletes-selection
+  "Backspace with a selection removes only the selection."
+  (let ((ta (ta-make "hello world")))
+    (tui.textarea:textarea-focus ta)
+    (dotimes (i 5) (ta-key ta :right +mod-shift+))
+    (ta-key ta :backspace)
+    (is (string= " world" (tui.textarea:textarea-value ta)))))
+
+(test textarea-position-at-maps-coordinates
+  "POSITION-AT maps view coordinates past the gutter onto buffer positions."
+  (let ((ta (ta-make (format nil "hello~%world"))))
+    ;; Gutter: prompt "> " (2) + line numbers padded to 3 chars + space (4).
+    (let ((gutter 6))
+      (multiple-value-bind (row col)
+          (tui.textarea:textarea-position-at ta (+ gutter 2) 1)
+        (is (= 1 row))
+        (is (= 2 col)))
+      ;; Below the content clamps to the end of the buffer.
+      (multiple-value-bind (row col)
+          (tui.textarea:textarea-position-at ta gutter 99)
+        (is (= 1 row))
+        (is (= 5 col)))
+      ;; Inside the gutter clamps to column 0.
+      (multiple-value-bind (row col)
+          (tui.textarea:textarea-position-at ta 0 0)
+        (is (= 0 row))
+        (is (= 0 col))))))
+
+(test textarea-pointer-selection-drag
+  "Begin/extend/end selection tracks a pointer drag."
+  (let ((ta (ta-make "hello world"))
+        (gutter 6))
+    (tui.textarea:textarea-begin-selection ta gutter 0)
+    (tui.textarea:textarea-extend-selection ta (+ gutter 5) 0)
+    (tui.textarea:textarea-end-selection ta)
+    (is (string= "hello" (tui.textarea:textarea-selected-text ta)))))
+
+(test textarea-click-without-drag-discards-selection
+  "A zero-width selection (plain click) is discarded on END-SELECTION."
+  (let ((ta (ta-make "hello"))
+        (gutter 6))
+    (tui.textarea:textarea-begin-selection ta (+ gutter 2) 0)
+    (tui.textarea:textarea-end-selection ta)
+    (is (not (tui.textarea:textarea-has-selection-p ta)))
+    ;; The click still moved the cursor.
+    (is (equal '(0 2) (ta-cursor ta)))))
+
+(test textarea-selection-renders-styled
+  "The view styles the selected span instead of showing the bracket cursor."
+  (let ((ta (ta-make "hello world")))
+    (tui.textarea:textarea-focus ta)
+    (dotimes (i 5) (ta-key ta :right +mod-shift+))
+    (let ((view (tui.textarea:textarea-view ta)))
+      (is (search (string #\Escape) view))
+      ;; The bracket cursor (here "[ ]", cursor on the space after "hello")
+      ;; is suppressed on the selected line.
+      (is (not (search "[ ]" view))))))
+
+(test textarea-set-value-clears-selection
+  "Setting new content discards any selection."
+  (let ((ta (ta-make "hello")))
+    (tui.textarea:textarea-select-all ta)
+    (tui.textarea:textarea-set-value ta "fresh")
+    (is (not (tui.textarea:textarea-has-selection-p ta)))))
+
+(test textarea-copy-selection-returns-command
+  "COPY-SELECTION returns a command only when something is selected."
+  (let ((ta (ta-make "hello")))
+    (is (null (tui.textarea:textarea-copy-selection ta)))
+    (tui.textarea:textarea-select-all ta)
+    (is (functionp (tui.textarea:textarea-copy-selection ta)))))
