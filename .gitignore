@@ -33,3 +33,5 @@ THREAD-POOL.md
 .beads-credential-key
 .beads/proxieddb/
 *.gate.lock*
+.beads/interactions.jsonl
+.beads.backup-pre-recovery/
