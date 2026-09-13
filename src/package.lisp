@@ -168,6 +168,12 @@
    #:clipboard-msg-content
    #:make-clipboard-msg
 
+   ;; Raw escape write message (internal plumbing for raw-cmd)
+   #:write-escape-msg
+   #:write-escape-msg-p
+   #:write-escape-msg-sequence
+   #:make-write-escape-msg
+
    ;; Commands
    #:quit-cmd
    #:tick
@@ -391,6 +397,11 @@
    ;; Zones (mouse tracking)
    #:zone-manager
    #:zone-info
+   #:zone-info-id
+   #:zone-info-start-x
+   #:zone-info-start-y
+   #:zone-info-end-x
+   #:zone-info-end-y
    #:make-zone-manager
    #:init-global-zone-manager
    #:*zone-manager*

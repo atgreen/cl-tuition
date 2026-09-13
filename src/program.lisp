@@ -302,6 +302,13 @@ issues with timed recvmsg on SBCL."
            (setf should-render t)
            (when cmd (push cmd pending-cmds))))
 
+        ;; Raw escape writes (clipboard, color queries) - written here on
+        ;; the render thread so they never interleave with a frame
+        ((write-escape-msg-p msg)
+         (let ((stream (output-stream (program-renderer program))))
+           (write-string (write-escape-msg-sequence msg) stream)
+           (force-output stream)))
+
         ;; All other messages
         (t
          (multiple-value-bind (new-model cmd)

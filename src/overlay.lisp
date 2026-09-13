@@ -61,6 +61,24 @@ Background codes are: 40-47, 100-107, 48;5;N, 48;2;R;G;B"
             (char= (char code-str 0) #\4)
             (char= (char code-str 1) #\8))))))
 
+(defun %first-background-code (params)
+  "Return the first background color code among SGR PARAMS, or nil.
+Reassembles extended codes (48;5;N and 48;2;R;G;B) from their parts."
+  (loop for (param . rest) on params do
+    (cond
+      ;; Extended color: 48;5;N or 48;2;R;G;B
+      ((and (string= param "48") rest)
+       (let ((type (first rest)))
+         (cond
+           ((and (string= type "5") (second rest))
+            (return (format nil "48;5;~A" (second rest))))
+           ((and (string= type "2") (fourth rest))
+            (return (format nil "48;2;~A;~A;~A"
+                            (second rest) (third rest) (fourth rest)))))))
+      ;; Standard/bright background: 40-47, 100-107
+      ((%background-sgr-code-p param)
+       (return param)))))
+
 (defun %extract-background-sgr (str)
   "Extract only the FIRST (outermost) background color SGR code from the initial SGR sequences in STR.
 Returns an SGR sequence string for just the background color, or empty string if none.
@@ -68,55 +86,23 @@ This filters out foreground colors and text attributes, keeping only the first b
 which represents the outer container's background (not inner content styling)."
   (when (or (null str) (zerop (length str)))
     (return-from %extract-background-sgr ""))
-
   (let ((i 0)
-        (len (length str))
-        (bg-code nil))
-    ;; Scan all leading SGR sequences, but stop at first background found
-    (loop while (and (< i len) (char= (char str i) #\Escape) (null bg-code)) do
-      (incf i)
-      (when (and (< i len) (char= (char str i) #\[))
-        (incf i)
-        (let ((params-start i))
-          ;; Find the end of this SGR sequence
-          (loop while (< i len) do
-            (let ((code (char-code (char str i))))
-              (incf i)
-              (when (and (>= code #x40) (<= code #x7E))
-                ;; Check if this is an SGR sequence (ends with 'm')
-                (when (char= (char str (1- i)) #\m)
-                  ;; Parse the parameters (semicolon-separated)
-                  (let* ((params-str (subseq str params-start (1- i)))
-                         (params (uiop:split-string params-str :separator ";")))
-                    ;; Look for first background code in this sequence
-                    (loop for j from 0 below (length params)
-                          for param = (nth j params)
-                          until bg-code  ; Stop once we find one
-                          do (cond
-                               ;; Extended color: 48;5;N or 48;2;R;G;B
-                               ((and (string= param "48")
-                                     (< (1+ j) (length params)))
-                                (let ((type (nth (1+ j) params)))
-                                  (cond
-                                    ;; 256-color: 48;5;N
-                                    ((and (string= type "5")
-                                          (< (+ j 2) (length params)))
-                                     (setf bg-code (format nil "48;5;~A" (nth (+ j 2) params))))
-                                    ;; Truecolor: 48;2;R;G;B
-                                    ((and (string= type "2")
-                                          (< (+ j 4) (length params)))
-                                     (setf bg-code (format nil "48;2;~A;~A;~A"
-                                                           (nth (+ j 2) params)
-                                                           (nth (+ j 3) params)
-                                                           (nth (+ j 4) params)))))))
-                               ;; Standard/bright background: 40-47, 100-107
-                               ((%background-sgr-code-p param)
-                                (setf bg-code param))))))
-                (return)))))))
-    ;; Return the background SGR sequence if found
-    (if bg-code
-        (format nil "~C[~Am" #\Escape bg-code)
-        "")))
+        (len (length str)))
+    ;; Scan leading CSI sequences; stop at the first background found
+    (loop while (and (< i len) (char= (char str i) #\Escape)) do
+      (if (and (< (1+ i) len) (char= (char str (1+ i)) #\[))
+          (let ((end (%escape-sequence-end str i)))
+            ;; SGR sequences end with 'm'; parameters sit between "ESC[" and it
+            (when (char= (char str (1- end)) #\m)
+              (let ((bg-code (%first-background-code
+                              (uiop:split-string (subseq str (+ i 2) (1- end))
+                                                 :separator ";"))))
+                (when bg-code
+                  (return-from %extract-background-sgr
+                    (format nil "~C[~Am" #\Escape bg-code)))))
+            (setf i end))
+          (incf i)))
+    ""))
 
 (defun %insert-before-trailing-reset (str padding)
   "Insert PADDING string before any trailing ESC[0m reset sequence in STR.

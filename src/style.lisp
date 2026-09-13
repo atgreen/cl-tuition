@@ -1200,7 +1200,10 @@ ANSI escape sequences are preserved but not counted for width."
 
 (defun truncate-text (text width &key (ellipsis "…"))
   "Truncate TEXT to WIDTH visible columns, preserving ANSI sequences.
-If truncation occurs, append ELLIPSIS (default: …)."
+If truncation occurs, append ELLIPSIS (default: …).  Text that already
+fits within WIDTH is returned unchanged."
+  (when (<= (visible-length text) (max 0 width))
+    (return-from truncate-text text))
   (let* ((tokens (%tokenize text))
          (maxw (max 0 width))
          (ellw (visible-length ellipsis))

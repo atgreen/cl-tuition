@@ -243,7 +243,6 @@
          (right-char (first chars))
          (bottom-char (rest chars))
          (lines (split-string-by-newline text))
-         (num-lines (length lines))
          (max-width (if lines
                         (apply #'max (mapcar #'visible-length lines))
                         0))

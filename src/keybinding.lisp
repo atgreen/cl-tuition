@@ -102,7 +102,11 @@ Spec can be:
                                              (keybinding-help-key b)
                                              (keybinding-help-desc b)))
                                    enabled-bindings)))
-         (format nil "~{~A~^~A~}" help-strings separator)))
+         (format nil "~{~A~}"
+                 (loop for s in help-strings
+                       for first = t then nil
+                       unless first collect separator
+                       collect s))))
 
       (:full
        (when enabled-bindings

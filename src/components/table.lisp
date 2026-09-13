@@ -116,6 +116,7 @@ reorder border characters."
   "Render a single row with explicit column separators.
 LEFT/RIGHT are border glyphs; SEPARATOR is the vertical divider glyph.
 We wrap separators with LTR isolates to avoid bidi reordering."
+  (declare (ignore border))
   (let* ((lri (string (code-char #x2066)))
          (pdi (string (code-char #x2069)))
          (sep (format nil "~A~A~A" lri (or separator " ") pdi))
@@ -149,9 +150,7 @@ We wrap separators with LTR isolates to avoid bidi reordering."
          (border-bl (slot-value border 'tuition::bottom-left))
          (border-br (slot-value border 'tuition::bottom-right))
          (border-ml (slot-value border 'tuition::middle-left))
-         (border-mr (slot-value border 'tuition::middle-right))
-         (border-mt (slot-value border 'tuition::middle-top))
-         (border-mb (slot-value border 'tuition::middle-bottom)))
+         (border-mr (slot-value border 'tuition::middle-right)))
 
     ;; Top border
     (push (format nil "~A~{~A~^ ~}~A"

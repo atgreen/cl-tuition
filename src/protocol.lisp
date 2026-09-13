@@ -602,25 +602,19 @@ percentage clamped to 0-100."
 ;;; ---------- Query commands ----------
 
 (defun request-background-color-cmd ()
-  "Return a command that queries the terminal background color.
+  "Return a command that queries the terminal background color via OSC 11.
 The terminal responds with a background-color-msg."
-  (lambda ()
-    ;; OSC 11 query - terminal responds with color
-    nil))
+  (raw-cmd (format nil "~C]11;?~C\\" #\Escape #\Escape)))
 
 (defun request-foreground-color-cmd ()
-  "Return a command that queries the terminal foreground color.
+  "Return a command that queries the terminal foreground color via OSC 10.
 The terminal responds with a foreground-color-msg."
-  (lambda ()
-    ;; OSC 10 query - terminal responds with color
-    nil))
+  (raw-cmd (format nil "~C]10;?~C\\" #\Escape #\Escape)))
 
 (defun request-cursor-color-cmd ()
-  "Return a command that queries the terminal cursor color.
+  "Return a command that queries the terminal cursor color via OSC 12.
 The terminal responds with a cursor-color-msg."
-  (lambda ()
-    ;; OSC 12 query - terminal responds with color
-    nil))
+  (raw-cmd (format nil "~C]12;?~C\\" #\Escape #\Escape)))
 
 (defun request-terminal-version-cmd ()
   "Return a command that queries the terminal version/identification.
@@ -641,26 +635,41 @@ The terminal responds with a mode-report-msg."
 
 (defun set-clipboard-cmd (content)
   "Return a command that sets the system clipboard via OSC 52."
-  (declare (ignore content))
-  (lambda () nil))
+  (raw-cmd (format nil "~C]52;c;~A~C\\" #\Escape
+                   (cl-base64:string-to-base64-string content) #\Escape)))
 
 (defun read-clipboard-cmd ()
   "Return a command that reads the system clipboard via OSC 52.
 The terminal responds with a clipboard-msg."
-  (lambda () nil))
+  (raw-cmd (format nil "~C]52;c;?~C\\" #\Escape #\Escape)))
 
 (defun set-primary-clipboard-cmd (content)
   "Return a command that sets the primary selection via OSC 52."
-  (declare (ignore content))
-  (lambda () nil))
+  (raw-cmd (format nil "~C]52;p;~A~C\\" #\Escape
+                   (cl-base64:string-to-base64-string content) #\Escape)))
 
 ;;; ---------- Raw escape command ----------
+
+(defmessage write-escape-msg
+    ((sequence :initarg :sequence :initform ""
+               :accessor write-escape-msg-sequence))
+  :print-name write-escape
+  :documentation "Internal message asking the program loop to write a raw
+escape SEQUENCE to the terminal on the render thread, so it never
+interleaves with a frame.")
+
+(defun make-write-escape-msg (sequence)
+  "Construct a write-escape-msg carrying SEQUENCE."
+  (make-instance 'write-escape-msg :sequence sequence))
+
+(defun write-escape-msg-p (obj)
+  "Return true if OBJ is a write-escape-msg."
+  (typep obj 'write-escape-msg))
 
 (defun raw-cmd (sequence)
   "Return a command that writes a raw escape SEQUENCE to the terminal.
 SEQUENCE is a string of escape codes to write directly."
-  (declare (ignore sequence))
-  (lambda () nil))
+  (lambda () (make-write-escape-msg sequence)))
 
 ;;; ---------- Key event utilities ----------
 

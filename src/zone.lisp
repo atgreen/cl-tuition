@@ -160,26 +160,16 @@
                             (if found-marker
                                 (setf i (1+ start))
                                 ;; Regular CSI sequence - copy without affecting X
-                                (progn
-                                  (vector-push-extend ch output)
-                                  (incf i)
-                                  ;; Copy the '['
-                                  (when (< i (length text))
-                                    (vector-push-extend (char text i) output)
-                                    (incf i))
-                                  ;; Copy rest of CSI sequence until final byte
-                                  (loop while (< i (length text))
-                                        for esc-ch = (char text i)
-                                        do (vector-push-extend esc-ch output)
-                                           (incf i)
-                                           ;; Check for final byte (0x40-0x7E)
-                                           (when (and (>= (char-code esc-ch) #x40)
-                                                      (<= (char-code esc-ch) #x7E))
-                                             (return))))))
-                          ;; Other escape sequence - just copy the ESC
-                          (progn
-                            (vector-push-extend ch output)
-                            (incf i))))
+                                (let ((end (%escape-sequence-end text i)))
+                                  (loop for k from i below end
+                                        do (vector-push-extend (char text k) output))
+                                  (setf i end))))
+                          ;; Other escape sequence (e.g. an OSC 8 hyperlink) -
+                          ;; copy it whole without affecting X
+                          (let ((end (%escape-sequence-end text i)))
+                            (loop for k from i below end
+                                  do (vector-push-extend (char text k) output))
+                            (setf i end))))
 
                      ;; Handle newlines
                      ((char= ch #\Newline)

@@ -486,7 +486,7 @@ or DECRPM response (CSI ? mode ; setting $ y)."
             (if (char= ch #\Escape)
                 (let ((c1 (readc)))
                   (if (and c1 (char= c1 #\[))
-                      (let* ((digits '()) (d nil) (term nil))
+                      (let* ((digits '()) (term nil))
                         (loop for d = (readc) while d do
                               (cond
                                 ((digit-char-p d) (push d digits))

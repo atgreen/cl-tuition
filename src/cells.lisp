@@ -261,23 +261,37 @@ escapes are encountered, placing characters into cells."
                              (return))
                             ;; Skip unknown intermediate bytes
                             (t (incf i)))))))
-                   ;; OSC sequence: ESC ]
+                   ;; OSC: capture hyperlink state from OSC 8 (ESC ] 8 ;
+                   ;; params ; URI ST/BEL); skip any other payload.
                    ((char= next #\])
-                    (incf i)
-                    ;; Read until ST (ESC \) or BEL (^G)
-                    (let ((osc-start i))
-                      (declare (ignore osc-start))
-                      (loop while (< i len) do
-                        (let ((c (char str i)))
-                          (cond
-                            ((char= c #\Bel) (incf i) (return))
-                            ((and (char= c #\Escape)
-                                  (< (1+ i) len)
-                                  (char= (char str (1+ i)) #\\))
-                             (incf i 2) (return))
-                            (t (incf i)))))))
-                   ;; Other escape - skip
-                   (t (incf i))))))
+                    (let* ((end (%escape-sequence-end str (1- i)))
+                           (payload-start (1+ i))
+                           (payload-end
+                             (cond
+                               ;; ST terminator: ESC \
+                               ((and (>= end 2)
+                                     (char= (char str (1- end)) #\\)
+                                     (char= (char str (- end 2)) #\Escape))
+                                (- end 2))
+                               ;; BEL terminator
+                               ((and (>= end 1)
+                                     (char= (char str (1- end)) #\Bel))
+                                (1- end))
+                               (t end))))
+                      (when (and (>= (- payload-end payload-start) 2)
+                                 (char= (char str payload-start) #\8)
+                                 (char= (char str (1+ payload-start)) #\;))
+                        ;; The URI follows the second ';' (after the params).
+                        (let ((uri-sep (position #\; str
+                                                 :start (+ payload-start 2)
+                                                 :end payload-end)))
+                          (when uri-sep
+                            (let ((uri (subseq str (1+ uri-sep) payload-end)))
+                              ;; An empty URI ends the hyperlink.
+                              (setf cur-link (unless (string= uri "") uri))))))
+                      (setf i end)))
+                   ;; Other escape - skip it (ESC is at i-1)
+                   (t (setf i (%escape-sequence-end str (1- i))))))))
 
             ;; Newline
             ((char= ch #\Newline)

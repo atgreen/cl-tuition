@@ -60,10 +60,7 @@
 
     (dolist (lines block-lines)
       (dolist (line lines)
-        (let* ((width (visible-length line))
-               (padding (- max-width width))
-               (aligned (align-text line max-width position)))
-          (push aligned result))))
+        (push (align-text line max-width position) result)))
 
     (format nil "~{~A~^~%~}" (nreverse result))))
 
@@ -95,12 +92,12 @@
                  (append top-padding lines bottom-padding))))
       (t
        (let* ((extra (- text-height height))
-              (pos (if (numberp position) (max 0 (min 1 position)) position))
               (start (cond
                        ((or (eq position :top) (eq position :left)) 0)
                        ((or (eq position :bottom) (eq position :right)) extra)
                        ((or (eq position :middle) (eq position :center)) (floor extra 2))
-                       ((numberp position) (floor (* extra pos)))
+                       ((numberp position)
+                        (floor (* extra (max 0.0 (min 1.0 (float position))))))
                        (t 0))))
          (format nil "~{~A~^~%~}" (subseq lines start (+ start height))))))))
 
