@@ -4,16 +4,16 @@
 ;;;
 ;;; Copyright (C) 2025  Anthony Green <green@moxielogic.com>
 ;;;
-;;;; Windows Console API bindings for terminal control
+;;;; Windows Console API bindings for terminal control.
+;;;;
+;;;; This file is only compiled on Windows (see :if-feature in tuition.asd).
+;;;; The body below is additionally reader-guarded so the alien definitions
+;;;; are never even read elsewhere.
+
+(in-package #:tuition)
 
 #+win32
 (progn
-  (in-package #:tuition)
-
-  ;; Load Windows FFI support
-  #+sbcl
-  (eval-when (:compile-toplevel :load-toplevel :execute)
-    (require :sb-alien))
 
   ;;; Windows Console API Constants
 
@@ -44,32 +44,43 @@
 
   #+sbcl
   (progn
-    (define-alien-routine ("GetStdHandle" get-std-handle) unsigned-long
-      (std-handle long))
+    (sb-alien:define-alien-routine ("GetStdHandle" get-std-handle)
+        sb-alien:unsigned-long
+      (std-handle sb-alien:long))
 
-    (define-alien-routine ("GetConsoleMode" get-console-mode) int
-      (console-handle unsigned-long)
-      (mode (* unsigned-long)))
+    (sb-alien:define-alien-routine ("GetConsoleMode" get-console-mode)
+        sb-alien:int
+      (console-handle sb-alien:unsigned-long)
+      (mode (sb-alien:* sb-alien:unsigned-long)))
 
-    (define-alien-routine ("SetConsoleMode" set-console-mode) int
-      (console-handle unsigned-long)
-      (mode unsigned-long))
+    (sb-alien:define-alien-routine ("SetConsoleMode" set-console-mode)
+        sb-alien:int
+      (console-handle sb-alien:unsigned-long)
+      (mode sb-alien:unsigned-long))
 
-    (define-alien-type console-screen-buffer-info
-        (struct console-screen-buffer-info
-                (size (struct coord (x short) (y short)))
-                (cursor-position (struct coord (x short) (y short)))
-                (attributes unsigned-short)
-                (window (struct small-rect
-                               (left short)
-                               (top short)
-                               (right short)
-                               (bottom short)))
-                (max-window-size (struct coord (x short) (y short)))))
+    (sb-alien:define-alien-type console-screen-buffer-info
+        (sb-alien:struct console-screen-buffer-info
+                         (size (sb-alien:struct coord
+                                                (x sb-alien:short)
+                                                (y sb-alien:short)))
+                         (cursor-position (sb-alien:struct cursor-coord
+                                                           (x sb-alien:short)
+                                                           (y sb-alien:short)))
+                         (attributes sb-alien:unsigned-short)
+                         (window (sb-alien:struct small-rect
+                                                  (left sb-alien:short)
+                                                  (top sb-alien:short)
+                                                  (right sb-alien:short)
+                                                  (bottom sb-alien:short)))
+                         (max-window-size (sb-alien:struct max-coord
+                                                           (x sb-alien:short)
+                                                           (y sb-alien:short)))))
 
-    (define-alien-routine ("GetConsoleScreenBufferInfo" get-console-screen-buffer-info) int
-      (console-handle unsigned-long)
-      (info (* console-screen-buffer-info))))
+    (sb-alien:define-alien-routine
+        ("GetConsoleScreenBufferInfo" get-console-screen-buffer-info)
+        sb-alien:int
+      (console-handle sb-alien:unsigned-long)
+      (info (sb-alien:* console-screen-buffer-info))))
 
   ;;; Lisp-friendly wrappers
 
@@ -97,31 +108,32 @@
     (init-console-handles)
 
     ;; Save original modes
-    (with-alien ((input-mode unsigned-long)
-                 (output-mode unsigned-long))
-      (when (zerop (get-console-mode *stdin-handle* (addr input-mode)))
+    (sb-alien:with-alien ((input-mode sb-alien:unsigned-long)
+                          (output-mode sb-alien:unsigned-long))
+      (when (zerop (get-console-mode *stdin-handle*
+                                     (sb-alien:addr input-mode)))
         (error "Failed to get console input mode"))
-      (when (zerop (get-console-mode *stdout-handle* (addr output-mode)))
+      (when (zerop (get-console-mode *stdout-handle*
+                                     (sb-alien:addr output-mode)))
         (error "Failed to get console output mode"))
 
       (setf *original-input-mode* input-mode)
       (setf *original-output-mode* output-mode)
 
-      ;; Set raw input mode
-      ;; Disable line input, echo, and processed input
-      ;; Enable mouse input and virtual terminal input
+      ;; Set raw input mode: disable line input, echo, and processed input;
+      ;; enable mouse input and virtual terminal input.
       (let ((new-input-mode (logior +enable-mouse-input+
-                                   +enable-window-input+
-                                   +enable-virtual-terminal-input+
-                                   +enable-extended-flags+)))
+                                    +enable-window-input+
+                                    +enable-virtual-terminal-input+
+                                    +enable-extended-flags+)))
         (when (zerop (set-console-mode *stdin-handle* new-input-mode))
           (error "Failed to set console input mode")))
 
-      ;; Set raw output mode
-      ;; Enable virtual terminal processing for ANSI escape codes
+      ;; Set raw output mode: enable virtual terminal processing for ANSI
+      ;; escape codes.
       (let ((new-output-mode (logior +enable-processed-output+
-                                    +enable-wrap-at-eol-output+
-                                    +enable-virtual-terminal-processing+)))
+                                     +enable-wrap-at-eol-output+
+                                     +enable-virtual-terminal-processing+)))
         (when (zerop (set-console-mode *stdout-handle* new-output-mode))
           (error "Failed to set console output mode")))))
 
@@ -137,16 +149,17 @@
   (defun win32-get-terminal-size ()
     "Get the current console size as (width . height)."
     (init-console-handles)
-    (with-alien ((info console-screen-buffer-info))
-      (if (zerop (get-console-screen-buffer-info *stdout-handle* (addr info)))
+    (sb-alien:with-alien ((info console-screen-buffer-info))
+      (if (zerop (get-console-screen-buffer-info *stdout-handle*
+                                                 (sb-alien:addr info)))
           ;; Failed - return default
           (cons 80 24)
           ;; Success - calculate width and height from window rect
-          (let* ((window (slot info 'window))
-                 (left (slot window 'left))
-                 (right (slot window 'right))
-                 (top (slot window 'top))
-                 (bottom (slot window 'bottom))
+          (let* ((window (sb-alien:slot info 'window))
+                 (left (sb-alien:slot window 'left))
+                 (right (sb-alien:slot window 'right))
+                 (top (sb-alien:slot window 'top))
+                 (bottom (sb-alien:slot window 'bottom))
                  (width (1+ (- right left)))
                  (height (1+ (- bottom top))))
             (cons width height))))))

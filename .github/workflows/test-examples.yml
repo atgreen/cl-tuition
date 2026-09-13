@@ -39,6 +39,12 @@ jobs:
           # (serapeum/macro-tools, serapeum/iter); ocicl only resolves the
           # main system's :depends-on, so it must be listed explicitly.
           ocicl install bordeaux-threads trivial-channels version-string alexandria serapeum cl-base64 fiveam parse-declarations-1.0
+          # ocicl can silently skip a system on a transient registry error
+          # (seen with fiveam), which poisons the artifact and fails every
+          # downstream job.  Fail loudly here instead.
+          for sys in bordeaux-threads trivial-channels alexandria serapeum cl-base64 fiveam parse-declarations; do
+            ls -d ocicl/*"$sys"* >/dev/null 2>&1 || { echo "::error::ocicl did not install $sys"; exit 1; }
+          done
 
       - name: Upload ocicl directory
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
