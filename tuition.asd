@@ -4,7 +4,7 @@
   :description "A Common Lisp library for building TUIs"
   :author "Anthony Green <green@moxielogic.com>"
   :license "MIT"
-  :version "2.4.0"
+  :version "2.5.0"
   :depends-on ("bordeaux-threads"
                "trivial-channels"
                "version-string"
