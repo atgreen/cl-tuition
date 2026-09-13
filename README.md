@@ -29,7 +29,7 @@ Tuition handles terminal concerns for you (raw mode, alternate screen, input dec
 - Commands: Functions that return messages asynchronously, enabling timers, I/O, and background work without blocking.
 - Program: A managed loop that sets up the terminal, processes messages, runs commands, and refreshes the screen.
 - Pure Rendering: Rendering returns strings; styling, layout, borders, and reflow are composition-friendly utilities.
-- Components: Reusable widgets (spinner, progress, list, table, tree, text input, textarea, viewport, paginator, stopwatch, timer, help, datepicker) that manage their own state and view.
+- Components: Reusable widgets (spinner, progress, list, table, tree, filepicker, text input, textarea, viewport, paginator, stopwatch, timer, help, datepicker) that manage their own state and view.
 - Zones: Named regions to map mouse coordinates to stable identifiers for hover/click interactions.
 
 ## Features
@@ -46,7 +46,7 @@ Tuition handles terminal concerns for you (raw mode, alternate screen, input dec
 - Borders (normal, rounded, thick, double, block, ASCII, markdown) with title bars and drop shadows
 - Overlay compositing with transparent shadow effects
 - Reflow helpers (wrapping, truncation, ellipsizing, indentation)
-- Built-in components: spinner, progress bar, list (paginated + filterable), table (with width/height fitting and overflow), tree (navigable, expand/collapse), text input, textarea (soft-wrap, dynamic height, selection), viewport (with soft-wrap), paginator, stopwatch, timer, help, datepicker
+- Built-in components: spinner, progress bar, list (paginated + filterable), table (with width/height fitting and overflow), tree (navigable, expand/collapse), filepicker, text input, textarea (soft-wrap, dynamic height, selection), viewport (with soft-wrap), paginator, stopwatch, timer, help, datepicker
 - Native terminal (taskbar) progress bar via OSC 9;4
 - Zones for advanced mouse interactions (define and query named regions)
 
@@ -456,6 +456,15 @@ Use components when you want common interactions without re‑implementing state
                     (tuition.components.tree:make-node "src" "main.lisp" "util.lisp"))
             :height 10)))
   (tuition.components.tree:tree-view tr))
+
+;; Filepicker (async directory listing; Enter selects/descends, Backspace up)
+(let ((fp (tuition.components.filepicker:make-filepicker
+            :current-directory "." :height 10 :auto-height nil)))
+  ;; The init command reads the directory; run it through your program,
+  ;; or synchronously as here:
+  (tuition.components.filepicker:filepicker-update
+    fp (funcall (tuition.components.filepicker:filepicker-init fp)))
+  (tuition.components.filepicker:filepicker-view fp))
 
 ;; Viewport (scrollable region; :soft-wrap wraps long lines to the width)
 (let ((vp (tuition.components.viewport:make-viewport

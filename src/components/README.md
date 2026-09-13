@@ -312,6 +312,51 @@ A navigable tree with expand/collapse, hidden nodes, and viewport scrolling.
       └── util.lisp
 ```
 
+### Filepicker
+
+Pick a file from the local filesystem, with async directory reads,
+allowed-type filtering, and viewport windowing.
+
+```lisp
+(use-package :tui.filepicker)
+
+(defparameter *fp* (make-filepicker
+                     :current-directory "~"
+                     :allowed-types '(".lisp" ".asd")))
+
+;; In your init - the returned command reads the directory
+(defmethod tui:init ((model my-model))
+  (filepicker-init (model-fp model)))
+
+;; In your update - delegate every message, then check for a selection
+(defmethod tui:update ((model my-model) msg)
+  (multiple-value-bind (new-fp cmd)
+      (filepicker-update (model-fp model) msg)
+    (setf (model-fp model) new-fp)
+    (multiple-value-bind (did path) (filepicker-did-select-file new-fp msg)
+      (when did (setf (model-chosen model) path)))
+    (values model cmd)))
+
+;; In your view
+(defmethod tui:view ((model my-model))
+  (filepicker-view (model-fp model)))
+```
+
+**Options:**
+- `:allowed-types` — selectable file suffixes (other files show disabled);
+  `:file-allowed` / `:dir-allowed` — what Enter may select
+- `:show-permissions` / `:show-size` / `:show-hidden`
+- `:height` — viewport rows; `:auto-height t` (default) tracks window-size
+  messages, minus a small margin
+- Styles: `:cursor-style`, `:selected-style`, `:directory-style`,
+  `:symlink-style`, `:file-style`, `:disabled-style`, `:permission-style`,
+  `:size-style`, `:empty-style`
+
+**Keybindings:**
+- `↓/j/Ctrl-n` / `↑/k/Ctrl-p` - Move; `J`/`PgDn` and `K`/`PgUp` - Page
+- `g` / `G` - First / last
+- `Enter/→/l` - Open directory or select file; `Backspace/←/h/Esc` - Parent directory
+
 ### Date Picker
 
 Interactive calendar for date selection with keyboard navigation.
