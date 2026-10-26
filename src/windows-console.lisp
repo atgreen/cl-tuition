@@ -153,4 +153,100 @@
                                      window-right window-bottom)
                                     info (:struct console-screen-buffer-info))
             (cons (1+ (- window-right window-left))
-                  (1+ (- window-bottom window-top))))))))
+                  (1+ (- window-bottom window-top)))))))
+
+  ;;; Console input records
+  ;;;
+  ;;; A console is read as INPUT_RECORDs rather than as a byte stream, so
+  ;;; that window resizes arrive as events.  Key-down records carry the
+  ;;; characters; with ENABLE_VIRTUAL_TERMINAL_INPUT these include the escape
+  ;;; sequences for arrows, mouse, paste and so on, which then go through the
+  ;;; same parser as on Unix.
+
+  (defconstant +key-event+ #x0001)
+  (defconstant +window-buffer-size-event+ #x0004)
+  (defconstant +wait-object-0+ 0)
+
+  ;; INPUT_RECORD: a WORD event type, then a union at offset 4 whose largest
+  ;; member, KEY_EVENT_RECORD, is 16 bytes.  Only the KEY_EVENT_RECORD fields
+  ;; used here are named; on a WINDOW_BUFFER_SIZE_EVENT the new size is read
+  ;; with win32-get-terminal-size instead, since the record holds the buffer
+  ;; size rather than the window size.
+  (cffi:defcstruct (input-record :size 20)
+    (event-type :uint16 :offset 0)
+    (key-down :int32 :offset 4)
+    (repeat-count :uint16 :offset 8)
+    (unicode-char :uint16 :offset 14))
+
+  (cffi:defcfun ("WaitForSingleObject" wait-for-single-object :convention :stdcall)
+      :uint32
+    (handle :pointer)
+    (milliseconds :uint32))
+
+  (cffi:defcfun ("GetNumberOfConsoleInputEvents" get-number-of-console-input-events
+                 :convention :stdcall)
+      :int
+    (console-handle :pointer)
+    (count (:pointer :uint32)))
+
+  (cffi:defcfun ("ReadConsoleInputW" read-console-input :convention :stdcall) :int
+    (console-handle :pointer)
+    (buffer :pointer)
+    (length :uint32)
+    (count (:pointer :uint32)))
+
+  (defun win32-console-input-p ()
+    "True when standard input is a console, so it can be read as input records."
+    (init-console-handles)
+    (cffi:with-foreign-object (mode :uint32)
+      (not (zerop (get-console-mode *stdin-handle* mode)))))
+
+  (defvar *pending-high-surrogate* nil
+    "High surrogate of a character split across two key records.")
+
+  (defun %utf16-unit-to-char (unit)
+    "Turn the UTF-16 code unit UNIT into a character, pairing surrogates
+across calls.  Returns NIL for a high surrogate."
+    (cond
+      ((<= #xD800 unit #xDBFF)
+       (setf *pending-high-surrogate* unit)
+       nil)
+      ((and (<= #xDC00 unit #xDFFF) *pending-high-surrogate*)
+       (prog1 (code-char (+ #x10000
+                            (ash (- *pending-high-surrogate* #xD800) 10)
+                            (- unit #xDC00)))
+         (setf *pending-high-surrogate* nil)))
+      (t
+       (setf *pending-high-surrogate* nil)
+       (code-char unit))))
+
+  (defun win32-read-console-input (timeout-ms)
+    "Wait up to TIMEOUT-MS for console input, then read every pending record.
+Returns two values: the characters typed, as a string, and whether the
+console reported a resize."
+    (let ((chars (make-string-output-stream))
+          (resized nil))
+      (when (= (wait-for-single-object *stdin-handle* timeout-ms) +wait-object-0+)
+        (cffi:with-foreign-object (count :uint32)
+          (unless (zerop (get-number-of-console-input-events *stdin-handle* count))
+            (let ((n (cffi:mem-ref count :uint32)))
+              (when (plusp n)
+                (cffi:with-foreign-objects ((records '(:struct input-record) n)
+                                            (got :uint32))
+                  (unless (zerop (read-console-input *stdin-handle* records n got))
+                    (dotimes (i (cffi:mem-ref got :uint32))
+                      (cffi:with-foreign-slots
+                          ((event-type key-down repeat-count unicode-char)
+                           (cffi:mem-aptr records '(:struct input-record) i)
+                           (:struct input-record))
+                        (cond
+                          ((= event-type +window-buffer-size-event+)
+                           (setf resized t))
+                          ((and (= event-type +key-event+)
+                                (not (zerop key-down))
+                                (not (zerop unicode-char)))
+                           (let ((ch (%utf16-unit-to-char unicode-char)))
+                             (when ch
+                               (dotimes (j (max 1 repeat-count))
+                                 (write-char ch chars)))))))))))))))
+      (values (get-output-stream-string chars) resized))))
