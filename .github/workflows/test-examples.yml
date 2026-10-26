@@ -38,11 +38,13 @@ jobs:
           # parse-declarations-1.0 is required by serapeum's subsystems
           # (serapeum/macro-tools, serapeum/iter); ocicl only resolves the
           # main system's :depends-on, so it must be listed explicitly.
-          ocicl install bordeaux-threads trivial-channels version-string alexandria serapeum cl-base64 fiveam parse-declarations-1.0
+          # cffi is only a dependency on Windows (:feature :win32), and the
+          # fetch runs on Linux, so it is listed explicitly too.
+          ocicl install bordeaux-threads trivial-channels version-string alexandria serapeum cl-base64 cffi fiveam parse-declarations-1.0
           # ocicl can silently skip a system on a transient registry error
           # (seen with fiveam), which poisons the artifact and fails every
           # downstream job.  Fail loudly here instead.
-          for sys in bordeaux-threads trivial-channels alexandria serapeum cl-base64 fiveam parse-declarations; do
+          for sys in bordeaux-threads trivial-channels alexandria serapeum cl-base64 cffi fiveam parse-declarations; do
             ls -d ocicl/*"$sys"* >/dev/null 2>&1 || { echo "::error::ocicl did not install $sys"; exit 1; }
           done
 

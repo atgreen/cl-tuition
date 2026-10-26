@@ -7,7 +7,7 @@
 ;;;; Windows Console API bindings for terminal control.
 ;;;;
 ;;;; This file is only compiled on Windows (see :if-feature in tuition.asd).
-;;;; The body below is additionally reader-guarded so the alien definitions
+;;;; The body below is additionally reader-guarded so the CFFI definitions
 ;;;; are never even read elsewhere.
 
 (in-package #:tuition)
@@ -42,45 +42,42 @@
 
   ;;; Windows Console API FFI Bindings
 
-  #+sbcl
-  (progn
-    (sb-alien:define-alien-routine ("GetStdHandle" get-std-handle)
-        sb-alien:unsigned-long
-      (std-handle sb-alien:long))
+  (cffi:define-foreign-library kernel32
+    (t "kernel32.dll"))
 
-    (sb-alien:define-alien-routine ("GetConsoleMode" get-console-mode)
-        sb-alien:int
-      (console-handle sb-alien:unsigned-long)
-      (mode (sb-alien:* sb-alien:unsigned-long)))
+  (cffi:use-foreign-library kernel32)
 
-    (sb-alien:define-alien-routine ("SetConsoleMode" set-console-mode)
-        sb-alien:int
-      (console-handle sb-alien:unsigned-long)
-      (mode sb-alien:unsigned-long))
+  (cffi:defcfun ("GetStdHandle" get-std-handle :convention :stdcall) :pointer
+    (std-handle :int32))
 
-    (sb-alien:define-alien-type console-screen-buffer-info
-        (sb-alien:struct console-screen-buffer-info
-                         (size (sb-alien:struct coord
-                                                (x sb-alien:short)
-                                                (y sb-alien:short)))
-                         (cursor-position (sb-alien:struct cursor-coord
-                                                           (x sb-alien:short)
-                                                           (y sb-alien:short)))
-                         (attributes sb-alien:unsigned-short)
-                         (window (sb-alien:struct small-rect
-                                                  (left sb-alien:short)
-                                                  (top sb-alien:short)
-                                                  (right sb-alien:short)
-                                                  (bottom sb-alien:short)))
-                         (max-window-size (sb-alien:struct max-coord
-                                                           (x sb-alien:short)
-                                                           (y sb-alien:short)))))
+  (cffi:defcfun ("GetConsoleMode" get-console-mode :convention :stdcall) :int
+    (console-handle :pointer)
+    (mode (:pointer :uint32)))
 
-    (sb-alien:define-alien-routine
-        ("GetConsoleScreenBufferInfo" get-console-screen-buffer-info)
-        sb-alien:int
-      (console-handle sb-alien:unsigned-long)
-      (info (sb-alien:* console-screen-buffer-info))))
+  (cffi:defcfun ("SetConsoleMode" set-console-mode :convention :stdcall) :int
+    (console-handle :pointer)
+    (mode :uint32))
+
+  ;; CONSOLE_SCREEN_BUFFER_INFO with its COORD and SMALL_RECT members
+  ;; flattened.  Every field is a SHORT or WORD, so the layout is unchanged.
+  (cffi:defcstruct console-screen-buffer-info
+    (size-x :short)
+    (size-y :short)
+    (cursor-x :short)
+    (cursor-y :short)
+    (attributes :unsigned-short)
+    (window-left :short)
+    (window-top :short)
+    (window-right :short)
+    (window-bottom :short)
+    (max-window-x :short)
+    (max-window-y :short))
+
+  (cffi:defcfun ("GetConsoleScreenBufferInfo" get-console-screen-buffer-info
+                 :convention :stdcall)
+      :int
+    (console-handle :pointer)
+    (info (:pointer (:struct console-screen-buffer-info))))
 
   ;;; Lisp-friendly wrappers
 
@@ -108,17 +105,15 @@
     (init-console-handles)
 
     ;; Save original modes
-    (sb-alien:with-alien ((input-mode sb-alien:unsigned-long)
-                          (output-mode sb-alien:unsigned-long))
-      (when (zerop (get-console-mode *stdin-handle*
-                                     (sb-alien:addr input-mode)))
+    (cffi:with-foreign-objects ((input-mode :uint32)
+                                (output-mode :uint32))
+      (when (zerop (get-console-mode *stdin-handle* input-mode))
         (error "Failed to get console input mode"))
-      (when (zerop (get-console-mode *stdout-handle*
-                                     (sb-alien:addr output-mode)))
+      (when (zerop (get-console-mode *stdout-handle* output-mode))
         (error "Failed to get console output mode"))
 
-      (setf *original-input-mode* input-mode)
-      (setf *original-output-mode* output-mode)
+      (setf *original-input-mode* (cffi:mem-ref input-mode :uint32))
+      (setf *original-output-mode* (cffi:mem-ref output-mode :uint32))
 
       ;; Set raw input mode: disable line input, echo, and processed input;
       ;; enable mouse input and virtual terminal input.
@@ -149,17 +144,13 @@
   (defun win32-get-terminal-size ()
     "Get the current console size as (width . height)."
     (init-console-handles)
-    (sb-alien:with-alien ((info console-screen-buffer-info))
-      (if (zerop (get-console-screen-buffer-info *stdout-handle*
-                                                 (sb-alien:addr info)))
+    (cffi:with-foreign-object (info '(:struct console-screen-buffer-info))
+      (if (zerop (get-console-screen-buffer-info *stdout-handle* info))
           ;; Failed - return default
           (cons 80 24)
           ;; Success - calculate width and height from window rect
-          (let* ((window (sb-alien:slot info 'window))
-                 (left (sb-alien:slot window 'left))
-                 (right (sb-alien:slot window 'right))
-                 (top (sb-alien:slot window 'top))
-                 (bottom (sb-alien:slot window 'bottom))
-                 (width (1+ (- right left)))
-                 (height (1+ (- bottom top))))
-            (cons width height))))))
+          (cffi:with-foreign-slots ((window-left window-top
+                                     window-right window-bottom)
+                                    info (:struct console-screen-buffer-info))
+            (cons (1+ (- window-right window-left))
+                  (1+ (- window-bottom window-top))))))))

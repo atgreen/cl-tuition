@@ -9,8 +9,8 @@
                "alexandria"
                "cl-base64"
                (:feature (:not :tuition-single-threaded) "bordeaux-threads")
-               (:feature (:not :tuition-single-threaded) "trivial-channels"))
-
+               (:feature (:not :tuition-single-threaded) "trivial-channels")
+               (:feature :win32 "cffi"))
   :serial t
   :components ((:module "src"
                 :components ((:file "package")
