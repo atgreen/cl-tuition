@@ -6,6 +6,7 @@
 ;;;
 ;;;; Spring animation example - demonstrates smooth physics-based motion
 
+(asdf:initialize-source-registry `(:source-registry (:tree ,(uiop:pathname-parent-directory-pathname (uiop:getcwd))) :inherit-configuration))
 (asdf:load-system :tuition)
 
 (defpackage #:tuition-example-spring-animation

@@ -6,6 +6,7 @@
 ;;; ported from the Lipgloss layout example.
 ;;; It showcases tabs, dialogs, lists, color grids, and status bars.
 
+(asdf:initialize-source-registry `(:source-registry (:tree ,(uiop:pathname-parent-directory-pathname (uiop:getcwd))) :inherit-configuration))
 (asdf:load-system :tuition)
 
 (defpackage :tuition.examples.layout

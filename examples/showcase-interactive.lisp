@@ -6,6 +6,7 @@
 ;;; It features clickable tabs, toggleable lists, and clickable dialogs.
 ;;; Ported from bubblezone's full-lipgloss example.
 
+(asdf:initialize-source-registry `(:source-registry (:tree ,(uiop:pathname-parent-directory-pathname (uiop:getcwd))) :inherit-configuration))
 (asdf:load-system :tuition)
 
 (defpackage :tuition.examples.showcase-interactive

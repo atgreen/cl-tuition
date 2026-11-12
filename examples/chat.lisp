@@ -5,6 +5,7 @@
 ;;; A simple chat demo demonstrating the textarea and viewport components
 ;;; working together. Port of the BubbleTea chat example.
 
+(asdf:initialize-source-registry `(:source-registry (:tree ,(uiop:pathname-parent-directory-pathname (uiop:getcwd))) :inherit-configuration))
 (asdf:load-system :tuition)
 
 (defpackage #:chat-demo

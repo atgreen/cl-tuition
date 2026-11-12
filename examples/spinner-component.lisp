@@ -6,6 +6,7 @@
 ;;;
 ;;;; Spinner component example - demonstrates using the reusable spinner component
 
+(asdf:initialize-source-registry `(:source-registry (:tree ,(uiop:pathname-parent-directory-pathname (uiop:getcwd))) :inherit-configuration))
 (asdf:load-system :tuition)
 
 (defpackage #:tuition-example-spinner-component

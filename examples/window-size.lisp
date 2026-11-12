@@ -6,6 +6,7 @@
 ;;;
 ;;;; Window size example - demonstrates terminal size detection
 
+(asdf:initialize-source-registry `(:source-registry (:tree ,(uiop:pathname-parent-directory-pathname (uiop:getcwd))) :inherit-configuration))
 (asdf:load-system :tuition)
 
 (defpackage #:tuition-example-window-size

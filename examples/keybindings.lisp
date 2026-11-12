@@ -9,6 +9,7 @@
 ;;;; This example shows how to use the keybinding system to create
 ;;;; structured key handlers with auto-generated help text.
 
+(asdf:initialize-source-registry `(:source-registry (:tree ,(uiop:pathname-parent-directory-pathname (uiop:getcwd))) :inherit-configuration))
 (asdf:load-system :tuition)
 
 (defpackage #:keybindings-example
