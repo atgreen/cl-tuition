@@ -46,6 +46,7 @@
   "Read a single key from stdin and return a key-press-msg.
    Returns nil if no input is available."
   (let ((stream (or *input-stream* *standard-input*)))
+    #+tuition-single-threaded
     (unless (listen stream)
       (return-from read-key nil))
     (let ((char (read-char-no-hang stream nil nil)))

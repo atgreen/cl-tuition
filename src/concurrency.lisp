@@ -33,3 +33,8 @@
         (setf (st-queue-head queue) (cdr head))
         (unless (st-queue-head queue)
           (setf (st-queue-tail queue) nil))))))
+
+;;; Timed commands return a delay request to the cooperative runner.
+(defstruct st-delay
+  duration
+  callback)

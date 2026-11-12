@@ -7,7 +7,6 @@
   :version "2.5.0"
   :depends-on ("version-string"
                "alexandria"
-               "serapeum"
                "cl-base64"
                (:feature (:not :tuition-single-threaded) "bordeaux-threads")
                (:feature (:not :tuition-single-threaded) "trivial-channels"))
@@ -66,6 +65,7 @@
   :serial t
   :components ((:module "tests"
                 :components ((:file "basic")
+                             (:file "test-scheduling")
                              (:file "golden")
                              (:file "test-style")
                              (:file "test-borders")

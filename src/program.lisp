@@ -48,13 +48,15 @@
    (pending-commands :initform #-tuition-single-threaded nil
                                   #+tuition-single-threaded (make-st-queue)
                      :accessor program-pending-commands)
-   (pending-signal-thunks :initform #-tuition-single-threaded nil
-                                     #+tuition-single-threaded (make-st-queue)
-                          :accessor program-pending-signal-thunks))
+   (deadlines :initform nil :accessor program-deadlines)
+   ;; Allocated before handlers are installed; handlers only set array cells.
+   (signal-flags :initform (make-array 3 :initial-element nil)
+                 :reader program-signal-flags))
   (:documentation "A Bubble Tea program instance."))
 
-(defun make-program (model &key (pool-size #-tuition-single-threaded *default-pool-size*
-                                         #+tuition-single-threaded nil))
+(defun make-program
+    (model &key (pool-size #-tuition-single-threaded *default-pool-size*
+                           #+tuition-single-threaded nil))
   "Create a new program with the given initial model.
 
 In v2, terminal modes (alt-screen, mouse, focus events) are controlled
@@ -62,7 +64,8 @@ declaratively through the view-state returned by the view method.
 
 Options (keyword args only):
   :pool-size  number of worker threads for command execution (default: 4)
-              Set to NIL to disable thread pool (spawns thread per command)"
+              Set to NIL to disable thread pool (spawns thread per command).
+              Ignored in single-threaded builds."
   #+tuition-single-threaded
   (declare (ignore pool-size))
   (let ((resolved-pool-size #-tuition-single-threaded pool-size
@@ -97,44 +100,83 @@ Options (keyword args only):
   (st-queue-push (program-pending-commands program) cmd))
 
 #+tuition-single-threaded
-(defun %invoke-queued-command (program cmd)
-  "Run one async command thunk and send its message, if any."
-  (handler-case
-      (alexandria:when-let ((msg (funcall cmd)))
-        (send program msg))
-    (error (e)
-      (handle-error :command e))))
+(defun %invoke-queued-command (program cmd &optional continuation)
+  "Run CMD, scheduling delay requests without blocking input or other commands."
+  (let ((deferred nil))
+    (handler-case
+        (let ((msg (funcall cmd)))
+          (if (st-delay-p msg)
+              (let ((deadline
+                      (+ (get-internal-real-time)
+                         (* (st-delay-duration msg)
+                            internal-time-units-per-second))))
+                (setf (program-deadlines program)
+                      (nconc (program-deadlines program)
+                             (list
+                              (cons deadline
+                                    (lambda ()
+                                      (%invoke-queued-command
+                                       program (st-delay-callback msg)
+                                       continuation)
+                                      nil)))))
+                (setf (program-deadlines program)
+                      (stable-sort (program-deadlines program) #'< :key #'car)
+                      deferred t))
+              (when msg (send program msg))))
+      (error (e) (handle-error :command e)))
+    (when (and continuation (not deferred))
+      (funcall continuation))))
+
+#+tuition-single-threaded
+(defun process-due-commands (program &optional (now (get-internal-real-time)))
+  "Move expired deadlines onto the runnable queue, preserving deadline order."
+  (loop :while (and (program-deadlines program)
+                   (<= (caar (program-deadlines program)) now))
+        :do (enqueue-async-command
+             program (cdr (pop (program-deadlines program))))))
 
 #+tuition-single-threaded
 (defun process-one-pending-command (program)
-  "Execute at most one queued command without blocking the event loop indefinitely.
-Returns T when a command was run, NIL when the queue was empty."
+  "Execute at most one runnable command. User thunks must not block."
   (let ((cmd (st-queue-pop (program-pending-commands program))))
     (when cmd
       (%invoke-queued-command program cmd)
       t)))
 
 #+tuition-single-threaded
-(defun enqueue-deferred-signal-thunk (program thunk)
-  "Queue THUNK for execution on the main loop (safe from signal handlers)."
-  #+sbcl
-  (sb-sys:without-interrupts
-    (st-queue-push (program-pending-signal-thunks program) thunk))
-  #-sbcl
-  (st-queue-push (program-pending-signal-thunks program) thunk))
-
-#+tuition-single-threaded
-(defun process-pending-signal-thunks (program)
-  "Drain and execute all signal-deferred thunks on the main loop."
-  (loop
-    (let ((thunk
-            #+sbcl (sb-sys:without-interrupts
-                     (st-queue-pop (program-pending-signal-thunks program)))
-            #-sbcl (st-queue-pop (program-pending-signal-thunks program))))
-      (unless thunk (return))
-      (handler-case (funcall thunk)
-        (error (e)
-          (handle-error :signal-defer e))))))
+(defun process-pending-signals (program)
+  "Consume coalesced signal flags outside signal context."
+  (let ((flags (program-signal-flags program)))
+    (dotimes (index 3)
+      (let ((pending
+              #+sbcl
+              (sb-sys:without-interrupts
+                (prog1 (svref flags index)
+                  (setf (svref flags index) nil)))
+              #-sbcl
+              (prog1 (svref flags index)
+                (setf (svref flags index) nil))))
+        (when pending
+          (ecase index
+            (0
+             (let ((size (get-terminal-size)))
+               (send program (make-window-size-msg
+                              :width (car size) :height (cdr size)))))
+            (1
+             #+(and sbcl (not windows))
+             (let ((vs (last-view-state (program-renderer program))))
+               (setf (program-restore-fn program)
+                     (suspend-terminal
+                      :alt-screen (and vs (view-state-alt-screen vs))
+                      :mouse (and vs (view-state-mouse-mode vs))
+                      :focus-events (and vs (view-state-report-focus vs)))))
+             #+(and sbcl (not windows))
+             (sb-posix:kill (sb-posix:getpid) sb-posix:sigstop))
+            (2
+             (when (program-restore-fn program)
+               (resume-terminal (program-restore-fn program))
+               (setf (program-restore-fn program) nil))
+             (send program (make-resume-msg)))))))))
 
 (defun cleanup-program-terminal (program)
   "Restore terminal modes from the last view-state."
@@ -197,11 +239,6 @@ Returns T when a command was run, NIL when the queue was empty."
   (declare (ignore program))
   (bt:make-thread thunk :name (or name "tuition-signal-defer")))
 
-#+tuition-single-threaded
-(defun defer-from-signal (program thunk &optional name)
-  "Queue THUNK for the main loop (do not run Lisp from a signal handler)."
-  (declare (ignore name))
-  (enqueue-deferred-signal-thunk program thunk))
 
 (defun run (program)
   "Run the program's main loop. Blocks until the program exits.
@@ -232,7 +269,9 @@ Terminal modes are applied declaratively from the first view-state render."
               #+(and sbcl (not windows))
               (let ((old-sigwinch-handler nil)
                     (old-sigtstp-handler nil)
-                    (old-sigcont-handler nil))
+                    (old-sigcont-handler nil)
+                    #+tuition-single-threaded
+                    (signal-flags (program-signal-flags program)))
                 (unwind-protect
                     (progn
                       (setf old-sigwinch-handler
@@ -240,6 +279,10 @@ Terminal modes are applied declaratively from the first view-state render."
                              sb-posix:sigwinch
                              (lambda (signal code scp)
                                (declare (ignore signal code scp))
+                               #+tuition-single-threaded
+                               (unless *exec-suspended*
+                                 (setf (svref signal-flags 0) t))
+                               #-tuition-single-threaded
                                (unless *exec-suspended*
                                  (let* ((size (get-terminal-size))
                                         (width (car size))
@@ -256,6 +299,9 @@ Terminal modes are applied declaratively from the first view-state render."
                              sb-posix:sigtstp
                              (lambda (signal code scp)
                                (declare (ignore signal code scp))
+                               #+tuition-single-threaded
+                               (setf (svref signal-flags 1) t)
+                               #-tuition-single-threaded
                                (let* ((renderer (program-renderer program))
                                       (vs (last-view-state renderer)))
                                  (setf (program-restore-fn program)
@@ -263,15 +309,20 @@ Terminal modes are applied declaratively from the first view-state render."
                                         :alt-screen (and vs (view-state-alt-screen vs))
                                         :mouse (and vs (view-state-mouse-mode vs))
                                         :focus-events (and vs (view-state-report-focus vs)))))
+                               #-tuition-single-threaded
                                (sb-posix:kill (sb-posix:getpid) sb-posix:sigstop))))
                       (setf old-sigcont-handler
                             (sb-sys:enable-interrupt
                              sb-posix:sigcont
                              (lambda (signal code scp)
                                (declare (ignore signal code scp))
+                               #+tuition-single-threaded
+                               (setf (svref signal-flags 2) t)
+                               #-tuition-single-threaded
                                (when (program-restore-fn program)
                                  (resume-terminal (program-restore-fn program))
                                  (setf (program-restore-fn program) nil))
+                               #-tuition-single-threaded
                                (defer-from-signal
                                 program
                                 (lambda () (send program (make-resume-msg)))
@@ -318,7 +369,8 @@ issues with timed recvmsg on SBCL."
   (loop while (program-running program) do
     (handler-case
         (let ((did-work nil))
-          (process-pending-signal-thunks program)
+          (process-pending-signals program)
+          (process-due-commands program)
           (when (process-one-pending-command program)
             (setf did-work t))
           (unless (program-input-paused program)
@@ -508,9 +560,16 @@ sequence thread (mirrors bubbletea's nested-panic recovery)."
   #-tuition-single-threaded
   (bt:make-thread (%run-sequence-thunk program cmds) :name "tuition-sequence")
   #+tuition-single-threaded
-  (dolist (cmd cmds)
-    (when cmd
-      (enqueue-async-command program cmd))))
+  (labels ((step-sequence (remaining)
+             (when remaining
+               (enqueue-async-command
+                program
+                (lambda ()
+                  (%invoke-queued-command
+                   program (car remaining)
+                   (lambda () (step-sequence (cdr remaining))))
+                  nil)))))
+    (step-sequence (remove nil cmds))))
 
 (defun read-all-available-events ()
   "Read all available input events and return them as a list."

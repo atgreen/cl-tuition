@@ -597,11 +597,14 @@ percentage clamped to 0-100."
   "Create a command that waits for DURATION seconds then produces a message.
    If FN is provided, calls it to produce the message.
    If FN is not provided, returns a tick-msg."
-  (lambda ()
-    (sleep duration)
-    (if fn-supplied-p
-        (funcall fn)
-        (make-tick-msg))))
+  (let ((callback (if fn-supplied-p fn #'make-tick-msg)))
+    (lambda ()
+      #-tuition-single-threaded
+      (progn
+        (sleep duration)
+        (funcall callback))
+      #+tuition-single-threaded
+      (make-st-delay :duration duration :callback callback))))
 
 ;;; ---------- Query commands ----------
 

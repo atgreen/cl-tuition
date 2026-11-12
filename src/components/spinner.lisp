@@ -130,9 +130,9 @@
 
 (defun spinner-init (spinner)
   "Initialize the spinner and return a tick command."
-  (lambda ()
-    (sleep (spinner-fps spinner))
-    (make-spinner-tick-msg :id (spinner-id spinner))))
+  (tuition:tick (spinner-fps spinner)
+                (lambda ()
+                  (make-spinner-tick-msg :id (spinner-id spinner)))))
 
 (defun spinner-update (spinner msg)
   "Update the spinner with a message. Returns (values new-spinner cmd)."
@@ -144,9 +144,7 @@
              (mod (1+ (spinner-frame-index spinner))
                   (length (spinner-frames spinner))))
        (values spinner
-               (lambda ()
-                 (sleep (spinner-fps spinner))
-                 (make-spinner-tick-msg :id (spinner-id spinner))))))
+               (spinner-init spinner))))
     (t
      (values spinner nil))))
 

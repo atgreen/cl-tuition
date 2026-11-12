@@ -534,6 +534,11 @@ In single-threaded mode:
   main loop instead of concurrently.
 - `cmd-sequence` runs commands in order, one per loop turn (same ordering as
   the threaded build, without a background thread).
+- `tick`, spinner, stopwatch, and timer commands use deadlines: waiting does
+  not block input, rendering, or other commands. A sequence waits for each
+  timed command to finish before starting its next command.
+- Custom command thunks still run inline. Blocking I/O, `sleep`, or lengthy
+  computation in a custom thunk freezes the entire UI until it returns.
 - `join` is a no-op.
 
 ## Dependencies
