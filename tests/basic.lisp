@@ -97,6 +97,35 @@
       ;; Homed to the origin row, not the top of the screen.
       (is (search (format nil "~C[3;1H" #\Escape) s)))))
 
+(test inline-view-uses-content-height
+  "A non-alt-screen frame is only as tall as its content; alt-screen fills the terminal."
+  (let* ((out (make-string-output-stream))
+         (r (make-instance 'tuition::renderer :output-stream out)))
+    (setf (tuition::renderer-height r) 10)
+    ;; Inline (plain string): two content lines -> a two-row buffer.
+    (tuition::render r (format nil "A~%B"))
+    (is (= 2 (tuition::screen-buffer-height (tuition::last-buffer r))))
+    ;; Alt-screen view: the buffer fills the terminal height.
+    (tuition::render r (make-instance 'tuition::view-state
+                                      :content (format nil "A~%B") :alt-screen t))
+    (is (= 10 (tuition::screen-buffer-height (tuition::last-buffer r))))))
+
+(test print-above-leaves-printed-lines-untouched
+  "After insert-above, the next inline frame repaints below the printed line,
+never over it -- this is what lets permanent lines reach the scrollback."
+  (let* ((out (make-string-output-stream))
+         (r (make-instance 'tuition::renderer :output-stream out)))
+    (setf (tuition::renderer-height r) 10)
+    (tuition::render r (format nil "A~%B"))     ; frame at rows 1-2, origin 0
+    (tuition::insert-above r "log1")            ; prints log1 at row 1, origin -> 1
+    (is (= 1 (tuition::renderer-origin-y r)))
+    (get-output-stream-string out)              ; discard output so far
+    (tuition::render r (format nil "A~%B"))     ; must repaint at rows 2-3 only
+    (let ((s (get-output-stream-string out)))
+      ;; Homed to the origin row (2); nothing addresses row 1 (the log line).
+      (is (search (format nil "~C[2;1H" #\Escape) s))
+      (is (not (search (format nil "~C[1;1H" #\Escape) s))))))
+
 ;;; --- get-terminal-size hardening (cl-tuition-2uz) ---
 (test terminal-size-sanitize
   "Terminal size never resolves to 0x0, a missing dimension, or an implausible size."

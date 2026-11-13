@@ -43,7 +43,7 @@
 ;;; View - the live status line that stays pinned below the scrolling log
 (defmethod tui:view ((model log-model))
   (tui:make-view
-   (format nil "~%  ── live status ──~%  printed ~D line~:P above (press q to quit)~%"
+   (format nil "  ── live status ──~%  printed ~D line~:P above (press q to quit)"
            (lines-printed model))))
 
 (defun main ()
