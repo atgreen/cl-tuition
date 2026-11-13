@@ -205,6 +205,11 @@ Commands are functions that return messages asynchronously.
 (tui:quit-cmd)
 (tui:batch cmd1 cmd2)
 (tui:cmd-sequence cmd-a cmd-b cmd-c)
+
+;; Print permanent lines above an inline (non-alt-screen) view; they
+;; scroll up into the terminal's scrollback while the view stays put.
+(tui:println "a log line")
+(tui:printf "~D items processed" n)
 ```
 
 ### Program Options
