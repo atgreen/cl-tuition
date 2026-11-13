@@ -33,29 +33,51 @@ emits minimal ANSI escape sequences."))
 
 (defmethod render ((r renderer) view)
   "Render VIEW to the terminal using cell-based diffing.
-VIEW may be a string or a view-state object."
+VIEW may be a string or a view-state object.
+
+On the alternate screen the frame fills the whole terminal.  For an
+inline (non-alt-screen) view the frame is only as tall as its content,
+exactly as bubbletea's renderer sizes its cell buffer: the rows below
+the frame are left untouched, so permanent lines emitted by INSERT-ABOVE
+flow up into the terminal's scrollback instead of being painted over."
   (let* ((content (if (typep view 'view-state)
                       (view-state-content view)
                       view))
          (stream (output-stream r))
          (w (renderer-width r))
-         (h (renderer-height r)))
+         (h (renderer-height r))
+         (alt-screen (and (typep view 'view-state) (view-state-alt-screen view))))
     ;; Handle view-state terminal transitions
     (when (typep view 'view-state)
       (apply-terminal-transitions r (last-view-state r) view stream)
       (setf (last-view-state r) view))
-    ;; Parse content into cell buffer
-    (let ((new-buf (parse-styled-string (or content "") w h))
-          (origin (renderer-origin-y r)))
+    ;; Alt-screen frames fill the terminal; inline frames are only as tall as
+    ;; their content (clamped to the terminal height).
+    (let* ((view-h (if alt-screen
+                       h
+                       (max 1 (min h (length (split-string-by-newline
+                                              (or content "")))))))
+           (new-buf (parse-styled-string (or content "") w view-h))
+           (origin (renderer-origin-y r))
+           (prev (last-buffer r))
+           (prev-h (if prev (screen-buffer-height prev) view-h)))
       ;; Synchronized output begin
       (write-syncd-begin stream)
+      ;; If the inline frame shrank, clear the rows it no longer occupies so a
+      ;; shorter view leaves no stale cells behind.
+      (when (> prev-h view-h)
+        (loop for y from view-h below prev-h
+              do (format stream "~C[~D;1H~C[K" #\Escape (+ 1 y origin) #\Escape)))
+      ;; A height change invalidates the diff baseline; repaint the frame fully.
+      (when (/= prev-h view-h)
+        (setf prev nil))
       ;; Home cursor so render-diff's assumed (0,origin) start is correct.
       ;; When ORIGIN is 0 this is exactly ESC[H (unchanged behavior).
       (if (zerop origin)
           (format stream "~C[H" #\Escape)
           (format stream "~C[~D;1H" #\Escape (1+ origin)))
       ;; Diff render against previous buffer
-      (render-diff (last-buffer r) new-buf stream origin)
+      (render-diff prev new-buf stream origin)
       ;; Synchronized output end
       (write-syncd-end stream)
       ;; Handle cursor positioning from view-state

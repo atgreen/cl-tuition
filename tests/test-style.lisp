@@ -103,6 +103,27 @@
   "split-string-by-newline splits correctly."
   (is (equal '("a" "b" "c") (split-string-by-newline (format nil "a~%b~%c")))))
 
+(test wrap-text-preserves-runs-when-not-normalizing
+  "wrap-text collapses space runs by default, but preserves them verbatim with
+:normalize-spaces nil so intentional padding is not eaten."
+  (is (string= "a b" (tuition::wrap-text "a      b" 40)))
+  (is (string= "a      b" (tuition::wrap-text "a      b" 40 :normalize-spaces nil))))
+
+(test render-styled-width-keeps-border-aligned
+  "render-styled with :width must not collapse the padding before a right
+border, so the border sits in the same column on every line."
+  (let* ((border (tuition:make-border :right "│" :top "" :bottom "" :left ""
+                                      :top-left "" :top-right ""
+                                      :bottom-left "" :bottom-right ""))
+         (content (tuition:join-vertical tuition:+left+ "Grapefruit" "Yuzu"))
+         (bordered (tuition:render-border content border :top nil :bottom nil :left nil))
+         (styled (tuition:render-styled (tuition:make-style :width 20) bordered))
+         (cols (loop for l in (split-string-by-newline styled)
+                     for p = (position #\│ l)
+                     when p collect p)))
+    (is (= 2 (length cols)))
+    (is (apply #'= cols))))
+
 (test split-trailing-newline
   "split-string-by-newline handles trailing newline."
   (is (equal '("a" "") (split-string-by-newline (format nil "a~%")))))
