@@ -164,7 +164,7 @@ escapes are encountered, placing characters into cells."
                    ;; CSI sequence: ESC [
                    ((char= next #\[)
                     (incf i)
-                    (let ((params (make-array 8 :fill-pointer 0 :initial-element 0))
+                    (let ((params (make-array 8 :fill-pointer 0 :adjustable t :initial-element 0))
                           (current 0)
                           (have-digit nil))
                       (vector-push-extend 0 params)

@@ -5,17 +5,21 @@
   :author "Anthony Green <green@moxielogic.com>"
   :license "MIT"
   :version "2.5.0"
-  :depends-on ("bordeaux-threads"
-               "trivial-channels"
-               "version-string"
+  :depends-on ("version-string"
                "alexandria"
-               "cl-base64")
+               "cl-base64"
+               (:feature (:not :tuition-single-threaded) "bordeaux-threads")
+               (:feature (:not :tuition-single-threaded) "trivial-channels"))
+
   :serial t
   :components ((:module "src"
                 :components ((:file "package")
+                             (:file "concurrency"
+                              :if-feature :tuition-single-threaded)
                              (:file "protocol")
                              (:file "errors")
-                             (:file "thread-pool")
+                             (:file "thread-pool"
+                              :if-feature (:not :tuition-single-threaded))
                              (:file "style")
                              (:file "borders")
                              (:file "layout")
@@ -61,6 +65,7 @@
   :serial t
   :components ((:module "tests"
                 :components ((:file "basic")
+                             (:file "test-scheduling")
                              (:file "golden")
                              (:file "test-style")
                              (:file "test-borders")
