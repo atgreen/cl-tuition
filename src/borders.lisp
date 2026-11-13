@@ -8,6 +8,31 @@
 
 (in-package #:tuition)
 
+(defun %tile-border-edge (segment target-width)
+  "Tile SEGMENT across TARGET-WIDTH display columns and return the string.
+SEGMENT may be multiple characters and may contain wide (2-cell) or
+zero-width glyphs; the result is exactly TARGET-WIDTH columns wide, padding
+with a space when a wide glyph would straddle the final column. A segment
+with no printable width falls back to spaces so a degenerate border cannot
+loop forever (cf. lipgloss #670)."
+  (let ((target (max 0 target-width)))
+    (if (or (null segment) (zerop (length segment))
+            (zerop (reduce #'+ segment :key #'%char-display-width :initial-value 0)))
+        (make-string target :initial-element #\Space)
+        (with-output-to-string (out)
+          (let ((col 0))
+            (block tiling
+              (loop
+                (loop for ch across segment do
+                  (let ((w (%char-display-width ch)))
+                    (cond
+                      ((>= col target) (return-from tiling))
+                      ((zerop w) (write-char ch out)) ; carry zero-width marks, no column cost
+                      ((> (+ col w) target)           ; wide glyph overflows last column
+                       (write-char #\Space out)
+                       (return-from tiling))
+                      (t (write-char ch out) (incf col w))))))))))))
+
 ;;; Border structure
 (defclass border ()
   ((top :initarg :top :accessor border-top :initform "─")
@@ -152,7 +177,6 @@
                               (subseq title 0 (min (length title) available))
                               title))
                          (t-len (visible-length truncated-title))
-                         (border-char (char (border-top border) 0))
                          (left-pad (case title-position
                                      (:left 1)
                                      (:right (max 1 (- max-width t-len 1)))
@@ -160,15 +184,14 @@
                          (right-pad (max 1 (- max-width t-len left-pad))))
                     (concatenate 'string
                                  (if left (funcall color-border-char (border-top-left border)) "")
-                                 (funcall color-border (make-string left-pad :initial-element border-char))
+                                 (funcall color-border (%tile-border-edge (border-top border) left-pad))
                                  truncated-title
-                                 (funcall color-border (make-string right-pad :initial-element border-char))
+                                 (funcall color-border (%tile-border-edge (border-top border) right-pad))
                                  (if right (funcall color-border-char (border-top-right border)) "")))
                   ;; Normal top border without title
                   (concatenate 'string
                                (if left (funcall color-border-char (border-top-left border)) "")
-                               (funcall color-border (make-string max-width :initial-element
-                                                                  (char (border-top border) 0)))
+                               (funcall color-border (%tile-border-edge (border-top border) max-width))
                                (if right (funcall color-border-char (border-top-right border)) "")))))
         (push top-line result)))
 
@@ -193,8 +216,7 @@
       (let ((bottom-line
               (concatenate 'string
                            (if left (funcall color-border-char (border-bottom-left border)) "")
-                           (funcall color-border (make-string max-width :initial-element
-                                                              (char (border-bottom border) 0)))
+                           (funcall color-border (%tile-border-edge (border-bottom border) max-width))
                            (if right (funcall color-border-char (border-bottom-right border)) ""))))
         (push bottom-line result)))
 

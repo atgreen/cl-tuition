@@ -470,9 +470,11 @@ TEXT were styled, while layout spaces added later (for padding or centering)
 were left unstyled — so background colors didn’t fill boxes. We instead
 compute the final block first, then wrap it with ANSI codes."
   (let ((result text))
-    ;; Handle inline mode - force single line, ignore margins/padding/borders
+    ;; Handle inline mode - force single line, ignore margins/padding/borders.
+    ;; Each newline becomes a single space so later lines are preserved rather
+    ;; than dropped (matches lipgloss Inline semantics).
     (when (style-inline style)
-      (setf result (car (split-string-by-newline result))))
+      (setf result (format nil "~{~A~^ ~}" (split-string-by-newline result))))
 
     ;; Pre-wrap: if a width is set, wrap text to (width - horizontal padding)
     ;; Note: normalize-spaces is nil to preserve intentional spacing in content
@@ -1029,6 +1031,37 @@ trailing padding/separators in LTR context."
 (defun %rgb-to-hex (r g b)
   "Convert RGB values (0-255) to hex string #RRGGBB."
   (format nil "#~2,'0X~2,'0X~2,'0X" (round r) (round g) (round b)))
+
+(defun %srgb-channel-to-linear (c)
+  "Convert one sRGB channel (0.0-1.0) to linear light."
+  (if (<= c 0.04045)
+      (/ c 12.92)
+      (expt (/ (+ c 0.055) 1.055) 2.4)))
+
+(defun %relative-luminance (r g b)
+  "Relative luminance Y (0.0-1.0) of an sRGB color (channels 0-255)."
+  (+ (* 0.2126 (%srgb-channel-to-linear (/ r 255.0)))
+     (* 0.7152 (%srgb-channel-to-linear (/ g 255.0)))
+     (* 0.0722 (%srgb-channel-to-linear (/ b 255.0)))))
+
+(defun %lab-lightness (r g b)
+  "CIELAB L* (0-100) of an sRGB color (channels 0-255), relative to D65 white."
+  (let* ((y (%relative-luminance r g b))
+         (fy (if (> y (expt 6/29 3))
+                 (expt y (/ 1.0 3.0))
+                 (+ (/ y (* 3.0 (expt 6/29 2))) (/ 4.0 29.0)))))
+    (- (* 116.0 fy) 16.0)))
+
+(defun is-dark-color (color)
+  "Return T if COLOR is perceptually dark, NIL if light.
+COLOR is a hex string (#RRGGBB or #RGB) or an (R G B) list with channels 0-255.
+Uses CIELAB L* (threshold 50), not HSL lightness, so saturated colors such as
+pure blue (#0000FF) are classified as dark the way they actually appear."
+  (multiple-value-bind (r g b)
+      (etypecase color
+        (string (%hex-to-rgb color))
+        (list (values (first color) (second color) (third color))))
+    (< (%lab-lightness r g b) 50.0)))
 
 (defun %rgb-to-hsl (r g b)
   "Convert RGB (0-255) to HSL (h: 0-360, s: 0-1, l: 0-1)."

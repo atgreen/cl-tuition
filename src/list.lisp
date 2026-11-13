@@ -59,10 +59,18 @@
   (format nil "~D. " (1+ index)))
 
 (defun alphabet-enumerator (items index)
-  "Alphabetic enumerator (A. B. C. ...)."
+  "Alphabetic enumerator (A. B. ... Z. AA. AB. ...).
+Uses bijective base-26 so lists longer than 26 items keep producing letters
+(AA, AB, ...) instead of running past #\\Z into punctuation."
   (declare (ignore items))
-  (let ((letter (code-char (+ (char-code #\A) index))))
-    (format nil "~A. " letter)))
+  (let ((n (1+ index))                  ; 1-based position
+        (digits '()))
+    (loop while (plusp n) do
+      (decf n)
+      (multiple-value-bind (q r) (floor n 26)
+        (push (code-char (+ (char-code #\A) r)) digits)
+        (setf n q)))
+    (format nil "~A. " (coerce digits 'string))))
 
 (defun roman-enumerator (items index)
   "Roman numeral enumerator (i. ii. iii. ...)."

@@ -350,3 +350,25 @@
   (let ((out (render-styled (make-style :foreground "#00FF00") "X")))
     (is (not (search "[#" out)))
     (is (find #\Escape out))))
+
+;;; --- inline mode preserves all lines (cl-tuition-6bg) ---
+(test inline-mode-joins-lines
+  "Inline style joins lines with a space instead of dropping all but the first."
+  (let ((r1 (render-styled (make-style :inline t) (format nil "hello~%world"))))
+    (is (not (find #\Newline r1)))
+    (is (search "hello world" r1)))
+  ;; A blank line becomes a second space, so content is not silently lost.
+  (let ((r2 (render-styled (make-style :inline t) (format nil "a~%~%b"))))
+    (is (not (find #\Newline r2)))
+    (is (search "a  b" r2))))
+
+;;; --- is-dark-color: perceptual (CIELAB) classification (cl-tuition-147) ---
+(test is-dark-color-classification
+  "is-dark-color uses perceptual lightness: saturated blue is dark, yellow is light."
+  (is (is-dark-color "#000000"))
+  (is (not (is-dark-color "#ffffff")))
+  (is (is-dark-color "#0000ff"))            ; pure blue reads as dark (HSL would miss this)
+  (is (not (is-dark-color "#ffff00")))      ; yellow is light
+  (is (not (is-dark-color "#00ff00")))      ; green is light
+  (is (is-dark-color '(0 0 0)))             ; (r g b) list form
+  (is (not (is-dark-color '(255 255 255)))))
