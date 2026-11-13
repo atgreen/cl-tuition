@@ -348,10 +348,12 @@ escapes are encountered, placing characters into cells."
       (/= (cell-attrs a) (cell-attrs b))
       (not (equal (cell-link a) (cell-link b)))))
 
-(defun render-diff (old-buf new-buf stream)
+(defun render-diff (old-buf new-buf stream &optional (origin-y 0))
   "Compare OLD-BUF and NEW-BUF cell by cell, emitting minimal ANSI
 escape sequences to STREAM to update the terminal.  Skips unchanged
-cells and tracks cursor position to emit minimal movement sequences."
+cells and tracks cursor position to emit minimal movement sequences.
+ORIGIN-Y shifts absolute row positioning down by that many screen rows
+(0, the default, reproduces the original top-of-screen behavior exactly)."
   (let* ((w (screen-buffer-width new-buf))
          (h (screen-buffer-height new-buf))
          (cur-x 0) (cur-y 0)      ; assumed cursor position
@@ -392,8 +394,8 @@ cells and tracks cursor position to emit minimal movement sequences."
                             (setf cur-x x))))
                         ;; Different row
                         (t
-                         ;; Use absolute cursor positioning
-                         (format stream "~C[~D;~DH" #\Escape (1+ y) (1+ x))
+                         ;; Use absolute cursor positioning (offset by ORIGIN-Y)
+                         (format stream "~C[~D;~DH" #\Escape (+ 1 y origin-y) (1+ x))
                          (setf cur-x x cur-y y))))
 
                     ;; Emit SGR if style changed

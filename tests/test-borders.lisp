@@ -111,3 +111,15 @@
   (let ((result (render-shadow "hello")))
     ;; Shadow adds bottom row and right padding
     (is (> (height result) 1))))
+
+;;; --- %tile-border-edge: multi-rune / wide-glyph edges (cl-tuition-bsx) ---
+(test tile-border-edge-exact-width
+  "A tiled border edge is always exactly TARGET display columns wide."
+  (dolist (seg (list "─" "ab" "中" "x中" ""))
+    (dolist (target (list 0 1 2 3 4 5 10 11))
+      (is (= target (tuition::visible-length (tuition::%tile-border-edge seg target))))))
+  ;; ASCII tiling repeats the whole segment, not just its first char.
+  (is (string= "ababa" (tuition::%tile-border-edge "ab" 5)))
+  (is (string= "─────" (tuition::%tile-border-edge "─" 5)))
+  ;; A segment with no printable width falls back to spaces (no infinite loop).
+  (is (string= "    " (tuition::%tile-border-edge "" 4))))

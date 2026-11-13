@@ -30,6 +30,8 @@
    #:run
    #:send
    #:quit
+   #:program-println
+   #:program-printf
    #:kill-program
    #:stop
    #:join
@@ -190,6 +192,12 @@
 
    ;; Raw escape command (v2)
    #:raw-cmd
+   #:println
+   #:printf
+   #:print-line-msg
+   #:print-line-msg-p
+   #:print-line-msg-content
+   #:make-print-line-msg
 
    ;; Key event utilities (v2)
    #:keystroke
@@ -351,6 +359,7 @@
    #:adaptive-color
    #:make-adaptive-color
    #:detect-dark-background
+   #:is-dark-color
    #:detect-color-support
 
    ;; Complete colors

@@ -205,27 +205,55 @@
   #-(or win32 unix)
   (warn "Raw mode not yet implemented for this platform"))
 
+(defparameter +max-terminal-dimension+ 4096
+  "Upper bound for a single terminal dimension. A report larger than this (or
+whose area exceeds 2^20 cells) is treated as bogus and ignored, so a garbled
+size cannot drive a huge render-buffer allocation.")
+
+(defun %env-terminal-size ()
+  "Terminal size from the COLUMNS/LINES environment variables, or NIL."
+  (let ((cols (parse-integer (or (uiop:getenv "COLUMNS") "") :junk-allowed t))
+        (rows (parse-integer (or (uiop:getenv "LINES") "") :junk-allowed t)))
+    (when (and cols rows (plusp cols) (plusp rows))
+      (cons cols rows))))
+
+(defun %plausible-terminal-size-p (w h)
+  "True when W x H is a usable terminal size (positive and not implausibly large)."
+  (and (integerp w) (integerp h)
+       (plusp w) (plusp h)
+       (<= w +max-terminal-dimension+)
+       (<= h +max-terminal-dimension+)
+       (<= (* w h) (expt 2 20))))
+
+(defun %sanitize-terminal-size (w h)
+  "Return (W . H) when plausible, otherwise fall back to COLUMNS/LINES then 80x24.
+Guards against a 0x0 report (pipes/CI), a missing dimension, or a garbled size."
+  (if (%plausible-terminal-size-p w h)
+      (cons w h)
+      (or (%env-terminal-size) (cons 80 24))))
+
 (defun get-terminal-size ()
-  "Get the current terminal size as (width . height)."
-  #+win32
-  (handler-case
-      (win32-get-terminal-size)
-    (error ()
-      (cons 80 24))) ; default fallback
-  #+unix
-  (handler-case
-      ;; Use /dev/tty to query the actual terminal, not stdin
-      (let ((output (uiop:run-program '("sh" "-c" "stty size < /dev/tty")
-                                     :output :string
-                                     :error-output nil)))
-        (let ((parts (uiop:split-string output)))
-          (when (= 2 (length parts))
-            (cons (parse-integer (second parts))
-                  (parse-integer (first parts))))))
-    (error ()
-      (cons 80 24))) ; default fallback
-  #-(or win32 unix)
-  (cons 80 24)) ; default fallback
+  "Get the current terminal size as (width . height).
+Always returns a cons; falls back to COLUMNS/LINES then 80x24 when the size is
+unavailable, non-positive, or implausibly large."
+  (let ((size
+          #+win32
+          (handler-case (win32-get-terminal-size) (error () nil))
+          #+unix
+          (handler-case
+              ;; Use /dev/tty to query the actual terminal, not stdin
+              (let* ((output (uiop:run-program '("sh" "-c" "stty size < /dev/tty")
+                                               :output :string
+                                               :error-output nil))
+                     (parts (uiop:split-string
+                             (string-trim '(#\Space #\Tab #\Newline #\Return) output))))
+                (when (= 2 (length parts))
+                  (cons (parse-integer (second parts) :junk-allowed t)
+                        (parse-integer (first parts) :junk-allowed t))))
+            (error () nil))
+          #-(or win32 unix)
+          nil))
+    (%sanitize-terminal-size (and size (car size)) (and size (cdr size)))))
 
 (defun set-terminal-title (title)
   "Set the terminal window title using OSC escape sequence.

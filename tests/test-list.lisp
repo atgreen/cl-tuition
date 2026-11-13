@@ -105,3 +105,20 @@
     (setf (tuition.render.list::list-enumerator lst) #'tuition.render.list:roman-enumerator)
     (is (golden-equal "list" "TestEnumeratorsAlign"
                       (tuition.render.list:list-render lst)))))
+
+;;; --- alphabet-enumerator: bijective base-26 (cl-tuition-ojc) ---
+(test alphabet-enumerator-base26
+  "Alphabet enumerator stays within A-Z and rolls over to AA, AB, ... past 26."
+  (flet ((enum (i) (tuition.render.list:alphabet-enumerator nil i)))
+    (is (string= "A. " (enum 0)))
+    (is (string= "Z. " (enum 25)))
+    (is (string= "AA. " (enum 26)))
+    (is (string= "AB. " (enum 27)))
+    (is (string= "AZ. " (enum 51)))
+    (is (string= "BA. " (enum 52)))
+    (is (string= "ZZ. " (enum 701)))
+    (is (string= "AAA. " (enum 702)))
+    ;; No index ever produces a non-letter (the old code emitted '[' at 26).
+    (dotimes (i 300)
+      (let ((s (string-right-trim ". " (enum i))))
+        (is (every (lambda (c) (char<= #\A c #\Z)) s))))))

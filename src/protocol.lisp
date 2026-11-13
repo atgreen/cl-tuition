@@ -678,6 +678,38 @@ interleaves with a frame.")
 SEQUENCE is a string of escape codes to write directly."
   (lambda () (make-write-escape-msg sequence)))
 
+;;; ---------- Print-above-view ----------
+
+(defmessage print-line-msg
+    ((content :initarg :content :initform ""
+              :accessor print-line-msg-content))
+  :print-name print-line
+  :documentation "Internal message asking the program loop to print CONTENT as
+permanent, unmanaged line(s) above the live view (inline mode only).  Handled
+on the render thread so it never interleaves with a frame.")
+
+(defun make-print-line-msg (&key (content ""))
+  "Construct a print-line-msg carrying CONTENT (a string; may contain newlines)."
+  (make-instance 'print-line-msg :content content))
+
+(defun print-line-msg-p (obj)
+  "Return true if OBJ is a print-line-msg."
+  (typep obj 'print-line-msg))
+
+(defun println (&rest args)
+  "Return a command that prints ARGS as a permanent line above the view.
+Like FORMAT's ~A on each argument, concatenated.  The line persists in the
+terminal's scrollback and is unaffected by later renders.  No-op under the
+alternate screen (there is no scrollback to print into)."
+  (let ((content (format nil "~{~A~}" args)))
+    (lambda () (make-print-line-msg :content content))))
+
+(defun printf (template &rest args)
+  "Return a command that prints a FORMAT-style line above the view.
+TEMPLATE and ARGS are passed to FORMAT.  See PRINTLN for the semantics."
+  (let ((content (apply #'format nil template args)))
+    (lambda () (make-print-line-msg :content content))))
+
 ;;; ---------- Key event utilities ----------
 
 (defun keystroke (key-event)

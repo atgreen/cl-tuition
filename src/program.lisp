@@ -82,6 +82,15 @@ Options (keyword args only):
   (when (program-running program)
     (%channel-send (msg-channel program) msg)))
 
+(defun program-println (program &rest args)
+  "Print ARGS as a permanent line above PROGRAM's view, from outside the update
+loop (fire-and-forget).  See the PRINTLN command for the semantics."
+  (send program (make-print-line-msg :content (format nil "~{~A~}" args))))
+
+(defun program-printf (program template &rest args)
+  "FORMAT-style variant of PROGRAM-PRINTLN."
+  (send program (make-print-line-msg :content (apply #'format nil template args))))
+
 (defun quit (program)
   "Quit the program gracefully."
   (send program (make-quit-msg)))
@@ -451,6 +460,12 @@ issues with timed recvmsg on SBCL."
          (let ((stream (output-stream (program-renderer program))))
            (write-string (write-escape-msg-sequence msg) stream)
            (force-output stream)))
+
+        ;; Print-above-view - write permanent line(s) above the view on the
+        ;; render thread, then repaint the view below them
+        ((print-line-msg-p msg)
+         (insert-above (program-renderer program) (print-line-msg-content msg))
+         (setf should-render t))
 
         ;; All other messages
         (t
