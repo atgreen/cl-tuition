@@ -586,9 +586,58 @@ sequence thread (mirrors bubbletea's nested-panic recovery)."
       (dolist (msg msgs)
         (%channel-send channel msg)))))
 
+#+win32
+(defun win32-input-loop (program)
+  "Read the Windows console as input records.  Characters go through the
+same escape-sequence parser as elsewhere; resize records become a
+window-size-msg."
+  (let ((pending "")
+        (deadline nil)
+        (last-size (get-terminal-size)))
+    (labels ((note-resize ()
+               (let ((size (get-terminal-size)))
+                 (unless (equal size last-size)
+                   (setf last-size size)
+                   (send program (make-window-size-msg :width (car size)
+                                                       :height (cdr size))))))
+             (ready-p ()
+               ;; Wait briefly for the rest of a sequence split across reads
+               ;; (longer for a paste); parse what there is once the deadline
+               ;; passes.
+               (let ((incomplete (incomplete-input-p pending)))
+                 (cond ((not incomplete) t)
+                       (deadline (>= (get-internal-real-time) deadline))
+                       (t (setf deadline (+ (get-internal-real-time)
+                                            (floor internal-time-units-per-second
+                                                   (if (eq incomplete :paste) 1 20))))
+                          nil))))
+             (flush ()
+               (setf deadline nil)
+               (let* ((*input-stream* (make-string-input-stream (shiftf pending "")))
+                      (events (read-all-available-events)))
+                 (when events
+                   (%ilog "win32-input-loop: batch of ~D events" (length events))
+                   (send-batch program events))))
+             (read-once ()
+               (multiple-value-bind (chars resized)
+                   (win32-read-console-input (if (plusp (length pending)) 10 50))
+                 (when resized (note-resize))
+                 (setf pending (concatenate 'string pending chars))
+                 (when (and (plusp (length pending)) (ready-p))
+                   (flush)))))
+      (loop while (program-running program) do
+        (handler-case
+            (if (program-input-paused program)
+                (sleep 0.05)
+                (read-once))
+          (error (e) (handle-error :input-loop e)))))))
+
 (defun input-loop (program)
   "Read input and send messages to the program."
   (setf *input-stream* (program-tty-stream program))
+  #+win32
+  (when (win32-console-input-p)
+    (return-from input-loop (win32-input-loop program)))
   #+(and sbcl (not windows))
   (handler-bind ((warning #'muffle-warning))
     (handler-case

@@ -76,6 +76,34 @@
            (%ilog "read-key: graphic '~A'" char)
            (make-key-press-msg :code char :text (string char))))))))
 
+(defun incomplete-input-p (string)
+  "True when STRING ends partway through an escape sequence or a bracketed
+paste (:PASTE for the latter).  Used where input arrives in batches (the
+Windows console) to wait for the rest before parsing, since the parser
+cannot resume a sequence across batches."
+  (let ((paste-start (search (format nil "~C[200~~" #\Escape) string :from-end t))
+        (paste-end (search (format nil "~C[201~~" #\Escape) string :from-end t))
+        (esc (position #\Escape string :from-end t)))
+    (cond
+      ;; A paste that has started but not ended
+      ((and paste-start (or (null paste-end) (< paste-end paste-start))) :paste)
+      ((null esc) nil)
+      (t
+       (let ((tail (subseq string (1+ esc))))
+         (cond
+           ;; Lone ESC: either the Escape key or the start of a sequence
+           ((zerop (length tail)) t)
+           ;; CSI: complete once a final byte (#x40-#x7E) follows the '['
+           ((char= (char tail 0) #\[)
+            (not (find-if (lambda (c) (<= #x40 (char-code c) #x7E)) tail :start 1)))
+           ;; SS3: one more character
+           ((char= (char tail 0) #\O) (= (length tail) 1))
+           ;; OSC / DCS: terminated by BEL, or by ST (ESC \), whose ESC
+           ;; would itself be the last ESC
+           ((member (char tail 0) '(#\] #\P))
+            (not (find (code-char 7) tail)))
+           (t nil)))))))
+
 (defun ctrl-char-to-key (char)
   "Convert a control character to its key representation."
   (let ((code (char-code char)))

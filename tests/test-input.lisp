@@ -334,3 +334,63 @@
 (test key-string-keyword
   "key-string returns keyword as lowercase string."
   (is (string= "enter" (key-string (make-key-press-msg :code :enter)))))
+
+;;; --- incomplete-input-p (batched input, e.g. the Windows console) ---
+
+(defun %esc (fmt &rest args)
+  "FORMAT with ~C bound to ESC first."
+  (apply #'format nil fmt #\Escape args))
+
+(test incomplete-input-plain-text
+  "Plain text is complete."
+  (is (not (tuition::incomplete-input-p "abc"))))
+
+(test incomplete-input-lone-esc
+  "A trailing ESC may start a sequence."
+  (is (tuition::incomplete-input-p (%esc "a~C"))))
+
+(test incomplete-input-csi
+  "A CSI sequence is complete once its final byte arrives."
+  (is (tuition::incomplete-input-p (%esc "~C[")))
+  (is (tuition::incomplete-input-p (%esc "~C[1;5")))
+  (is (not (tuition::incomplete-input-p (%esc "~C[A"))))
+  (is (not (tuition::incomplete-input-p (%esc "~C[1;5C")))))
+
+(test incomplete-input-sgr-mouse
+  "An SGR mouse report is incomplete until its M/m."
+  (is (tuition::incomplete-input-p (%esc "~C[<0;12;3")))
+  (is (not (tuition::incomplete-input-p (%esc "~C[<0;12;3M")))))
+
+(test incomplete-input-ss3
+  "SS3 needs one character after the O."
+  (is (tuition::incomplete-input-p (%esc "~CO")))
+  (is (not (tuition::incomplete-input-p (%esc "~COP")))))
+
+(test incomplete-input-osc
+  "OSC is complete once terminated by BEL or ST."
+  (is (tuition::incomplete-input-p (%esc "~C]11;rgb:0/0/0")))
+  (is (not (tuition::incomplete-input-p
+            (%esc "~C]11;rgb:0/0/0~C" (code-char 7)))))
+  (is (not (tuition::incomplete-input-p (%esc "~C]11;rgb:0/0/0~C\\" #\Escape)))))
+
+(test incomplete-input-alt-key
+  "ESC followed by a plain character (Alt+key) is complete."
+  (is (not (tuition::incomplete-input-p (%esc "~Cx")))))
+
+(test incomplete-input-paste
+  "A bracketed paste is incomplete until its end marker."
+  (is (eq :paste (tuition::incomplete-input-p (%esc "~C[200~~hello"))))
+  (is (not (tuition::incomplete-input-p (%esc "~C[200~~hello~C[201~~" #\Escape)))))
+
+(test batched-input-parses-every-event
+  "A batch holding several keys, an arrow and a mouse report parses into one
+event each, as the Windows console input loop does."
+  (let* ((tuition::*input-stream*
+           (make-string-input-stream
+            (%esc "a~C[D~C[<0;5;7Mb" #\Escape)))
+         (events (tuition::read-all-available-events)))
+    (is (= 4 (length events)))
+    (is (eql #\a (key-event-code (first events))))
+    (is (eq :left (key-event-code (second events))))
+    (is (typep (third events) 'tuition::mouse-click-msg))
+    (is (eql #\b (key-event-code (fourth events))))))
