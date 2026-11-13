@@ -39,12 +39,14 @@ jobs:
           # (serapeum/macro-tools, serapeum/iter); ocicl only resolves the
           # main system's :depends-on, so it must be listed explicitly.
           # cffi is only a dependency on Windows (:feature :win32), and the
-          # fetch runs on Linux, so it is listed explicitly too.
-          ocicl install bordeaux-threads trivial-channels version-string alexandria serapeum cl-base64 cffi fiveam parse-declarations-1.0
+          # fetch runs on Linux, so it is listed explicitly too.  babel is a
+          # cffi dependency that ocicl does not pull for an explicitly-listed
+          # extra system, so it must be named too.
+          ocicl install bordeaux-threads trivial-channels version-string alexandria serapeum cl-base64 cffi babel fiveam parse-declarations-1.0
           # ocicl can silently skip a system on a transient registry error
           # (seen with fiveam), which poisons the artifact and fails every
           # downstream job.  Fail loudly here instead.
-          for sys in bordeaux-threads trivial-channels alexandria serapeum cl-base64 cffi fiveam parse-declarations; do
+          for sys in bordeaux-threads trivial-channels alexandria serapeum cl-base64 cffi babel fiveam parse-declarations; do
             ls -d ocicl/*"$sys"* >/dev/null 2>&1 || { echo "::error::ocicl did not install $sys"; exit 1; }
           done
 
